@@ -1,0 +1,59 @@
+{
+  "shape": [
+    6726,
+    1195
+  ],
+  "start": "2000-01-03",
+  "end": "2026-09-30",
+  "fields": {
+    "open": {
+      "coverage": 0.4193,
+      "n_valid": 3369973,
+      "mean_names_per_date": 501.0
+    },
+    "high": {
+      "coverage": 0.4199,
+      "n_valid": 3374936,
+      "mean_names_per_date": 501.8
+    },
+    "low": {
+      "coverage": 0.4199,
+      "n_valid": 3374936,
+      "mean_names_per_date": 501.8
+    },
+    "close": {
+      "coverage": 0.4199,
+      "n_valid": 3374936,
+      "mean_names_per_date": 501.8
+    },
+    "volume": {
+      "coverage": 0.4199,
+      "n_valid": 3374936,
+      "mean_names_per_date": 501.8
+    },
+    "cap": {
+      "coverage": 0.4199,
+      "n_valid": 3374936,
+      "mean_names_per_date": 501.8
+    }
+  },
+  "names_per_date": {
+    "mean": 501.7746060065418,
+    "min": 498,
+    "max": 508
+  },
+  "default_split": {
+    "train_end": "2020-12-31",
+    "test_start": "2021-01-01",
+    "test_end": "2024-12-31",
+    "holdout_start": "2025-01-01"
+  },
+  "returns": {
+    "mean": 0.00048263413912656337,
+    "std": 0.023956982173844843,
+    "p01": -0.06517748,
+    "p99": 0.06800399999999995,
+    "max_abs": 1.7696949999999996,
+    "n_over_50pct": 90
+  }
+}
