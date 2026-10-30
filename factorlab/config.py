@@ -89,6 +89,10 @@ class BacktestSettings:
     min_names: int = 20
     keep_positions: bool = False
     compute_ic: bool = True
+    #: reference sub-universe: drop names with ``rank(cap) <= subuniverse``
+    #: (``if_else(rank(cap) > 0.3, factor, nan)``); ``None`` disables it
+    subuniverse: Optional[float] = 0.3
+    compute_subuniverse: bool = True
 
     def replace(self, **kwargs) -> "BacktestSettings":
         data = asdict(self)
@@ -173,6 +177,7 @@ class LLMSettings:
             api_key_env=key_env,
             temperature=float(os.getenv("FACTORLAB_LLM_TEMPERATURE", "0.7")),
             max_tokens=int(os.getenv("FACTORLAB_LLM_MAX_TOKENS", "4000")),
+            timeout=int(os.getenv("FACTORLAB_LLM_TIMEOUT", "180")),
         )
 
     def api_key(self) -> str:

@@ -29,7 +29,12 @@ from ..expr import parser as P
 from ..expr.evaluator import evaluate
 from ..expr.script import run_script
 from ..expr.spec import FactorSpec
-from .engine import BacktestResult, run_backtest, yearly_table
+from .engine import (
+    BacktestResult,
+    run_backtest,
+    run_backtest_with_subuniverse,
+    yearly_table,
+)
 from .split import SEGMENT_KEYS, SplitMasks, resolve_split, segment_metrics
 
 
@@ -90,6 +95,8 @@ class GridResult:
                 "sharpe_is",
                 "sharpe_oos",
                 "sharpe_holdout",
+                "sub_sharpe",
+                "sub_ann_return",
             )
             if c in self.table.columns
         ]
@@ -118,7 +125,27 @@ class GridResult:
             "n_names": round(float(m.get("n_names", np.nan)), 1),
             "hit_rate": round(float(m.get("hit_rate", np.nan)), 3),
             "fitness": round(float(m.get("fitness", np.nan)), 3),
+            "rank_ic": round(float(m.get("rank_ic", np.nan)), 4),
+            "pearson_ic": round(float(m.get("pearson_ic", np.nan)), 4),
         }
+        if self.best.subuniverse is not None:
+            sm = self.best.subuniverse.metrics
+            best["sub_sharpe"] = round(float(sm.get("sharpe", np.nan)), 3)
+            best["sub_ann_return"] = round(float(sm.get("ann_return", np.nan)), 4)
+            best["sub_turnover"] = round(float(sm.get("turnover", np.nan)), 1)
+            best["sub_rank_ic"] = round(float(sm.get("rank_ic", np.nan)), 4)
+        if self.best.subuniverse is not None:
+            sub = self.best.subuniverse
+            out_sub = {
+                "threshold": sub.threshold,
+                "metrics": _round_metrics(sub.metrics),
+                "segments": {
+                    key: _round_metrics(value)
+                    for key, value in (sub.segments or {}).items()
+                },
+            }
+        else:
+            out_sub = None
         out = {
             "objective": self.objective,
             "selection": "in-sample" if self.has_oos else "full-sample",
@@ -128,6 +155,8 @@ class GridResult:
             "share_sharpe_gt_0.5": round(good, 3),
             "yearly": self.best.yearly.reset_index().to_dict(orient="records"),
         }
+        if out_sub is not None:
+            out["subuniverse"] = out_sub
         if self.has_oos:
             segs = self.best.segments or {}
             out["split"] = {
@@ -319,6 +348,25 @@ class GridSearch:
             evals += 1
         return evals
 
+    def _sub_columns(self, sub) -> dict:
+        m = sub.metrics or {}
+        out = {
+            "sub_threshold": sub.threshold,
+            "sub_sharpe": m.get("sharpe"),
+            "sub_ann_return": m.get("ann_return"),
+            "sub_turnover": m.get("turnover"),
+            "sub_max_drawdown": m.get("max_drawdown"),
+            "sub_rank_ic": m.get("rank_ic"),
+            "sub_pearson_ic": m.get("pearson_ic"),
+            "sub_n_names": m.get("n_names"),
+        }
+        for seg, sm in (sub.segments or {}).items():
+            if seg == "full":
+                continue
+            out[f"sub_sharpe_{seg}"] = sm.get("sharpe")
+            out[f"sub_ann_return_{seg}"] = sm.get("ann_return")
+        return out
+
     def _segment_columns(self, segments: Optional[dict]) -> dict:
         if not segments or not self.split_masks.has_oos:
             return {}
@@ -396,7 +444,7 @@ class GridSearch:
         best_idx = int(order.index[0])
         best_row = order.iloc[0].drop(labels=["_score"]).to_dict()
         best_settings = results[best_idx].settings
-        best = run_backtest(
+        best = run_backtest_with_subuniverse(
             factors[int(best_row["combo_id"])],
             self.panel,
             best_settings.replace(compute_ic=True, keep_positions=True),
@@ -409,6 +457,15 @@ class GridSearch:
             self.split_masks,
             ann=best.settings.ann,
         )
+        if best.subuniverse is not None:
+            best.subuniverse.segments = segment_metrics(
+                best.subuniverse.pnl,
+                best.subuniverse.turnover,
+                best.subuniverse.ic,
+                best.subuniverse.factor,
+                self.split_masks,
+                ann=best.settings.ann,
+            )
         is_yearly = None
         oos_yearly = None
         holdout_yearly = None
@@ -436,6 +493,8 @@ class GridSearch:
                 best.ic.loc[mask],
                 best.settings.ann,
             )
+        if best.subuniverse is not None:
+            best_row.update(self._sub_columns(best.subuniverse))
         table = table.drop(columns=["_score"]).loc[order.index].reset_index(drop=True)
         best_factor = factors.get(int(best_row["combo_id"]), next(iter(factors.values())))
 

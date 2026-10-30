@@ -170,6 +170,14 @@ class MiningLoop:
                 f"turnover {best.get('turnover', float('nan')):.1f}, "
                 f"maxdd {best.get('max_drawdown', float('nan')):.1%}"
             )
+            if grid.best.subuniverse is not None:
+                sub_m = grid.best.subuniverse.metrics
+                self._log(
+                    f"    sub-universe (rank(cap) > {grid.best.subuniverse.threshold}) "
+                    f"-> sharpe {sub_m.get('sharpe', float('nan')):.2f}, "
+                    f"ann {sub_m.get('ann_return', float('nan')):.1%}, "
+                    f"rankIC {sub_m.get('rank_ic', float('nan')):.3f}"
+                )
             if grid.has_oos:
                 oos = (grid.best.segments or {}).get("oos", {})
                 self._log(
@@ -286,13 +294,16 @@ class MiningLoop:
             "ann return",
             "turnover",
             "maxDD",
-            "IC",
+            "RankIC",
             "factor",
         ]
         if any_oos:
             cols += ["sharpe IS", "sharpe OOS"]
         if any_holdout:
             cols += ["sharpe Holdout"]
+        any_sub = any((a.grid or {}).get("subuniverse") for a in self.attempts)
+        if any_sub:
+            cols += ["sharpe sub"]
         lines.append("| " + " | ".join(cols) + " |")
         lines.append("|" + "|".join(["---"] * len(cols)) + "|")
 
@@ -311,7 +322,7 @@ class MiningLoop:
                 _fmt_pct(b.get("ann_return")),
                 _fmt(b.get("turnover"), 1),
                 _fmt_pct(b.get("max_drawdown")),
-                _fmt(b.get("ic"), 3),
+                _fmt(b.get("rank_ic", b.get("ic")), 3),
                 a.factor_id or "-",
             ]
             if any_oos:
@@ -321,6 +332,8 @@ class MiningLoop:
                 ]
             if any_holdout:
                 cells += [_fmt((grid.get("holdout") or {}).get("sharpe"), 2)]
+            if any_sub:
+                cells += [_fmt((grid.get("subuniverse") or {}).get("metrics", {}).get("sharpe"), 2)]
             lines.append("| " + " | ".join(cells) + " |")
 
         for name, a in last_by_hyp.items():
@@ -347,6 +360,32 @@ class MiningLoop:
             lines.append(f"- **reasoning**: {review.get('reasoning', '')}")
             lines.append(f"- **diagnosis**: {review.get('diagnosis', '')}")
             lines.append(f"- **spec**: `{spec.get('expression') or '<script>'}`")
+            sub = grid.get("subuniverse") or {}
+            if sub.get("metrics"):
+                sm = sub["metrics"]
+                same_filter = False
+                try:
+                    same_filter = (
+                        b.get("cap_filter") is not None
+                        and abs(float(b.get("cap_filter")) - float(sub.get("threshold"))) < 1e-9
+                    )
+                except (TypeError, ValueError):
+                    same_filter = False
+                lines.append(
+                    f"- **sub-universe** (rank(cap) > {sub.get('threshold')}, "
+                    "reference only): "
+                    f"sharpe {_fmt(sm.get('sharpe'), 2)}, "
+                    f"return {_fmt_pct(sm.get('ann_return'))}/yr, "
+                    f"turnover {_fmt(sm.get('turnover'), 1)}, "
+                    f"maxDD {_fmt_pct(sm.get('max_drawdown'))}, "
+                    f"RankIC {_fmt(sm.get('rank_ic', sm.get('ic')), 3)}"
+                    + (
+                        " — identical to the primary book because the best config "
+                        "already drops the same names"
+                        if same_filter
+                        else ""
+                    )
+                )
 
             ins = grid.get("in_sample")
             oos = grid.get("out_of_sample")
@@ -373,7 +412,7 @@ class MiningLoop:
             if yearly:
                 lines += [
                     "",
-                    "| year | return | sharpe | turnover | maxDD | IC |",
+                    "| year | return | sharpe | turnover | maxDD | RankIC |",
                     "|---|---|---|---|---|---|",
                 ]
                 for y in yearly:
@@ -388,7 +427,7 @@ class MiningLoop:
                     "",
                     "holdout by year:",
                     "",
-                    "| year | return | sharpe | turnover | maxDD | IC |",
+                    "| year | return | sharpe | turnover | maxDD | RankIC |",
                     "|---|---|---|---|---|---|",
                 ]
                 for y in hold_yearly:
@@ -403,7 +442,7 @@ class MiningLoop:
                     "",
                     "out-of-sample by year:",
                     "",
-                    "| year | return | sharpe | turnover | maxDD | IC |",
+                    "| year | return | sharpe | turnover | maxDD | RankIC |",
                     "|---|---|---|---|---|---|",
                 ]
                 for y in oos_yearly:
@@ -512,7 +551,7 @@ def _segment_line(metrics: Optional[dict]) -> str:
         f"return {_fmt_pct(metrics.get('ann_return'))}/yr, "
         f"turnover {_fmt(metrics.get('turnover'), 1)}, "
         f"maxDD {_fmt_pct(metrics.get('max_drawdown'))}, "
-        f"IC {_fmt(metrics.get('ic'), 3)}"
+        f"RankIC {_fmt(metrics.get('rank_ic', metrics.get('ic')), 3)}"
     )
 
 

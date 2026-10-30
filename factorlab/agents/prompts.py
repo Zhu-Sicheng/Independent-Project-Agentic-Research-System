@@ -168,6 +168,14 @@ Judge the *hypothesis*, not just the Sharpe: a factor with a coherent story and
 a stable but modest edge can be accepted; a high-Sharpe factor with an
 implausible mechanism and one good year should not be.
 
+`best.rank_ic` is the mean daily cross-sectional Spearman (rank) IC and
+`best.pearson_ic` the corresponding Pearson IC; `best.ic` is an alias of
+`best.rank_ic`. `subuniverse` is a *reference* backtest of the same factor on
+`if_else(rank(cap) > 0.3, factor, nan)` (the smallest 30% by cap removed): the
+decision must be driven by the full-universe numbers, but a large drop in the
+sub-universe Sharpe means the edge lives in small, illiquid names and should be
+treated as a warning.
+
 The evidence may contain three segments: `in_sample` (the grid selected its
 configuration here only), `out_of_sample` (2021-2024 validation) and `holdout`
 (2025+, the final untouched sample). Both untouched segments are evidence: a

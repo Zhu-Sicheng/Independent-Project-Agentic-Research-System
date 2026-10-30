@@ -40,6 +40,30 @@ def xs_spearman(
     return corr
 
 
+def xs_pearson(
+    a: pd.DataFrame, b: pd.DataFrame, min_names: int = 10
+) -> pd.Series:
+    """Per-date cross-sectional Pearson correlation of two factor matrices."""
+    if not (a.index.equals(b.index) and a.columns.equals(b.columns)):
+        idx = a.index.intersection(b.index)
+        cols = a.columns.intersection(b.columns)
+        a = a.reindex(index=idx, columns=cols)
+        b = b.reindex(index=idx, columns=cols)
+
+    valid = a.notna() & b.notna()
+    n = valid.sum(axis=1)
+    aa = a.where(valid)
+    bb = b.where(valid)
+    aa = aa.sub(aa.mean(axis=1), axis=0)
+    bb = bb.sub(bb.mean(axis=1), axis=0)
+    num = (aa * bb).sum(axis=1, min_count=1)
+    den = np.sqrt((aa**2).sum(axis=1) * (bb**2).sum(axis=1))
+    corr = num / den.replace(0.0, np.nan)
+    corr = corr.where(n >= min_names)
+    corr.name = "xs_pearson"
+    return corr
+
+
 def spearman_over_time(
     a: pd.DataFrame, b: pd.DataFrame, min_names: int = 10
 ) -> dict:
@@ -99,6 +123,7 @@ def summarise_pnl(
     net: pd.Series,
     turnover: pd.Series,
     ic: Optional[pd.Series] = None,
+    pearson_ic: Optional[pd.Series] = None,
     ann: int = 252,
 ) -> dict:
     net = net.dropna()
@@ -131,9 +156,25 @@ def summarise_pnl(
     }
     if ic is not None:
         ic = ic.dropna()
-        out["ic"] = float(ic.mean()) if not ic.empty else float("nan")
-        out["ic_ir"] = (
+        # ``ic`` is the cross-sectional *rank* IC (daily Spearman); the name is
+        # kept for backward compatibility, ``rank_ic`` is the explicit alias
+        out["rank_ic"] = float(ic.mean()) if not ic.empty else float("nan")
+        out["rank_ic_ir"] = (
             float(ic.mean() / ic.std()) if len(ic) > 2 and ic.std() > 0 else float("nan")
         )
-        out["ic_positive_ratio"] = float((ic > 0).mean()) if not ic.empty else float("nan")
+        out["rank_ic_positive_ratio"] = (
+            float((ic > 0).mean()) if not ic.empty else float("nan")
+        )
+        out["ic"] = out["rank_ic"]
+        out["ic_ir"] = out["rank_ic_ir"]
+        out["ic_positive_ratio"] = out["rank_ic_positive_ratio"]
+    if pearson_ic is not None:
+        pic = pearson_ic.dropna()
+        out["pearson_ic"] = float(pic.mean()) if not pic.empty else float("nan")
+        out["pearson_ic_ir"] = (
+            float(pic.mean() / pic.std()) if len(pic) > 2 and pic.std() > 0 else float("nan")
+        )
+        out["pearson_ic_positive_ratio"] = (
+            float((pic > 0).mean()) if not pic.empty else float("nan")
+        )
     return out

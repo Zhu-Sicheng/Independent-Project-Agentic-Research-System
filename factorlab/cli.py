@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from .backtest.engine import run_backtest
+from .backtest.engine import run_backtest, run_backtest_with_subuniverse
 from .config import (
     BacktestSettings,
     GridConfig,
@@ -35,6 +35,13 @@ def _add_split(p: argparse.ArgumentParser) -> None:
     p.add_argument("--holdout-end", default=None, help="final holdout end date (inclusive)")
 
 
+def _subuniverse_from_args(args) -> float | None:
+    if getattr(args, "no_subuniverse", False):
+        return None
+    value = getattr(args, "subuniverse_threshold", None)
+    return 0.3 if value is None else float(value)
+
+
 def _split_from_args(args) -> SampleSplit | None:
     split = SampleSplit(
         train_start=args.train_start,
@@ -56,6 +63,17 @@ def _add_common(p: argparse.ArgumentParser) -> None:
     )
     p.add_argument("--start", default=None, help="restrict the sample start date")
     p.add_argument("--end", default=None, help="restrict the sample end date")
+    p.add_argument(
+        "--subuniverse-threshold",
+        type=float,
+        default=None,
+        help="cap-rank cutoff of the sub-universe reference backtest (default 0.3)",
+    )
+    p.add_argument(
+        "--no-subuniverse",
+        action="store_true",
+        help="skip the sub-universe reference backtest",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -119,6 +137,9 @@ def cmd_run(args) -> int:
         grid=GridConfig(max_evals=args.max_evals, objective=args.objective),
         split=_split_from_args(args),
     )
+    config.backtest = config.backtest.replace(
+        subuniverse=_subuniverse_from_args(args)
+    )
     if args.offline:
         config.llm.provider = "offline"
         config.llm.model = ""
@@ -135,7 +156,11 @@ def cmd_run(args) -> int:
 def cmd_expr(args) -> int:
     panel = _load(args)
     settings = BacktestSettings(
-        decay=args.decay, transform=args.transform, cap_filter=args.cap, cost_bps=args.cost_bps
+        decay=args.decay,
+        transform=args.transform,
+        cap_filter=args.cap,
+        cost_bps=args.cost_bps,
+        subuniverse=_subuniverse_from_args(args),
     )
     if args.grid:
         from .backtest.grid import GridSearch
@@ -145,8 +170,11 @@ def cmd_expr(args) -> int:
         print(json.dumps(grid.summary()["best"], indent=2))
         return 0
     factor = evaluate_text(args.expression, panel)
-    result = run_backtest(factor, panel, settings)
+    result = run_backtest_with_subuniverse(factor, panel, settings)
     print(json.dumps(result.metrics, indent=2))
+    if result.subuniverse is not None:
+        print("sub-universe:")
+        print(json.dumps(result.subuniverse.metrics, indent=2))
     print(result.yearly.round(3).to_string())
     return 0
 

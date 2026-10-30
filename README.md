@@ -67,7 +67,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # full
 
 > In PowerShell an expression starting with `-` needs the `--expression="..."` form,
 > otherwise it is parsed as a flag.
-> Tests: `python -m unittest discover -s tests` (60 cases).
+> Tests: `python -m unittest discover -s tests` (68 cases).
 
 ### 2. Layout
 
@@ -292,8 +292,18 @@ raw factor
 
 - one-way turnover = `0.5 * Σ|w_t - w_{t-1}|`, annualised by 252;
 - cost = `cost_bps/1e4 * Σ|Δw|` (0 by default);
-- metrics: `sharpe ann_return ann_vol total_return max_drawdown turnover hit_rate ic ic_ir fitness n_names`,
-  plus **per-year** return / sharpe / turnover / maxdd / IC;
+- `y` is **close-to-close**: `r_t = close_t / close_{t-1} - 1`;
+- metrics: `sharpe ann_return ann_vol total_return max_drawdown turnover hit_rate n_names`,
+  plus two information coefficients: `rank_ic` (mean daily cross-sectional
+  Spearman, the primary one, also kept as `ic`) with `rank_ic_ir` /
+  `rank_ic_positive_ratio`, and `pearson_ic` with `pearson_ic_ir`;
+- **per-year** return / sharpe / turnover / maxdd / RankIC;
+- **sub-universe reference**: the same factor is re-run on
+  `if_else(rank(cap) > 0.3, factor, nan)` (smallest 30% removed) and reported as
+  `sub_sharpe / sub_ann_return / sub_turnover / sub_max_drawdown / sub_rank_ic`.
+  Acceptance is still driven by the **full-universe** numbers; the sub-universe is
+  a liquidity check ("does the edge survive outside micro caps?"). Disable it with
+  `--no-subuniverse`, move the cut with `--subuniverse-threshold 0.2`;
 - `fitness = sharpe * sqrt(|ann_return| / max(turnover, 0.125))` (BRAIN convention).
 
 #### 5.2 Grid space
@@ -536,7 +546,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # 走�
 ```
 
 > PowerShell 里以 `-` 开头的表达式要用 `--expression="..."` 的等号写法，否则会被当成参数名。
-> 测试：`python -m unittest discover -s tests`（60 个用例）。
+> 测试：`python -m unittest discover -s tests`（68 个用例）。
 
 ### 2. 目录结构
 
@@ -746,7 +756,15 @@ def generate(panel, params):
 
 - turnover（单边）= `0.5 * Σ|w_t - w_{t-1}|`，指标里乘 252 年化；
 - 成本 = `cost_bps/1e4 * Σ|Δw|`（默认 0，可设）；
-- 指标：`sharpe ann_return ann_vol total_return max_drawdown turnover hit_rate ic ic_ir fitness n_names`，另加**分年**的 return / sharpe / turnover / maxdd / IC；
+- `y` 固定为 **close-to-close**：`r_t = close_t / close_{t-1} - 1`；
+- 指标：`sharpe ann_return ann_vol total_return max_drawdown turnover hit_rate n_names`，
+  以及两个信息系数：`rank_ic`（逐日截面 Spearman 均值，主口径，同时保留别名 `ic`）及
+  `rank_ic_ir` / `rank_ic_positive_ratio`，`pearson_ic` 及 `pearson_ic_ir`；
+- **分年**的 return / sharpe / turnover / maxdd / RankIC；
+- **子全集参考回测**：同一因子在 `if_else(rank(cap) > 0.3, factor, nan)`（剔除最小 30%）上
+  重跑一遍，报告 `sub_sharpe / sub_ann_return / sub_turnover / sub_max_drawdown / sub_rank_ic`。
+  是否接受仍以**全样本**指标为准，子全集只作流动性参考（"alpha 是否只活在小市值里"）。
+  `--no-subuniverse` 关闭，`--subuniverse-threshold 0.2` 改切点；
 - `fitness = sharpe * sqrt(|ann_return| / max(turnover, 0.125))`（BRAIN 口径，便于横向比较）。
 
 #### 5.2 网格空间

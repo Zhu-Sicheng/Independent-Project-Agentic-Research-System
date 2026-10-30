@@ -32,6 +32,32 @@ class BacktestError(ValueError):
 
 
 @dataclass
+class SubUniverseResult:
+    """Backtest of the same factor restricted to the sub-universe.
+
+    ``if_else(rank(cap) > threshold, factor, nan)``: the smallest names are
+    dropped and the book is rebuilt on the remaining names.  This is a
+    *reference* diagnostic; the primary metrics stay the full-universe ones.
+    """
+
+    threshold: float
+    metrics: dict
+    pnl: pd.Series
+    turnover: pd.Series
+    ic: pd.Series
+    pearson_ic: Optional[pd.Series] = None
+    factor: Optional[pd.DataFrame] = None
+    segments: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "threshold": self.threshold,
+            "metrics": self.metrics,
+            "segments": self.segments,
+        }
+
+
+@dataclass
 class BacktestResult:
     settings: BacktestSettings
     metrics: dict
@@ -41,8 +67,11 @@ class BacktestResult:
     ic: pd.Series
     factor: Optional[pd.DataFrame] = None
     positions: Optional[pd.DataFrame] = None
+    pearson_ic: Optional[pd.Series] = None
     #: metrics per segment: ``{"full": ..., "is": ..., "oos": ...}``
     segments: dict = field(default_factory=dict)
+    #: reference backtest on ``if_else(rank(cap) > settings.subuniverse, f, nan)``
+    subuniverse: Optional[SubUniverseResult] = None
 
     def to_dict(self) -> dict:
         return {
@@ -54,9 +83,11 @@ class BacktestResult:
                 "cap_filter": self.settings.cap_filter,
                 "neutralize": self.settings.neutralize,
                 "cost_bps": self.settings.cost_bps,
+                "subuniverse": self.settings.subuniverse,
             },
             "metrics": self.metrics,
             "segments": self.segments,
+            "subuniverse": self.subuniverse.to_dict() if self.subuniverse else None,
             "yearly": self.yearly.reset_index().to_dict(orient="records"),
         }
 
@@ -65,6 +96,13 @@ class BacktestResult:
 # returns
 # --------------------------------------------------------------------------- #
 def forward_returns(panel: PanelStore, y: str = "close_to_close") -> pd.DataFrame:
+    """Daily forward return.
+
+    ``close_to_close`` is the default and the only convention used by the
+    mining loop: ``r_t = close_t / close_{t-1} - 1``.  It is served from the
+    cached ``returns`` field of the panel; any other price field is accepted and
+    converted to a simple return.
+    """
     if y == "close_to_close":
         if "close" not in panel:
             raise BacktestError("panel has no 'close' field")
@@ -84,17 +122,21 @@ def forward_returns(panel: PanelStore, y: str = "close_to_close") -> pd.DataFram
 # factor -> weights
 # --------------------------------------------------------------------------- #
 def prepare_factor(
-    raw: pd.DataFrame, panel: PanelStore, settings: BacktestSettings
+    raw: pd.DataFrame,
+    panel: PanelStore,
+    settings: BacktestSettings,
+    universe_mask: Optional[pd.DataFrame] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply cap filter, cross-sectional transform and decay.
 
     Returns ``(factor_used, weights)`` where ``weights`` is the tradable book.
     Order: cap filter -> transform -> decay -> demean -> unit gross exposure.
     """
-    f = raw.reindex(index=panel.dates, columns=panel.tickers).astype(
-        "float64", copy=False
-    )
+    f = raw.reindex(index=panel.dates, columns=panel.tickers).astype("float64")
     f = f.replace([np.inf, -np.inf], np.nan)
+    if universe_mask is not None:
+        mask = universe_mask.reindex(index=f.index, columns=f.columns)
+        f = f.where(mask.fillna(False).astype(bool))
     arr = f.to_numpy(copy=False)
 
     if settings.cap_filter is not None:
@@ -152,9 +194,10 @@ def run_backtest(
     raw: pd.DataFrame,
     panel: PanelStore,
     settings: BacktestSettings = BacktestSettings(),
+    universe_mask: Optional[pd.DataFrame] = None,
 ) -> BacktestResult:
     ret_df = forward_returns(panel, settings.y)
-    f, w_df = prepare_factor(raw, panel, settings)
+    f, w_df = prepare_factor(raw, panel, settings, universe_mask=universe_mask)
 
     ret = ret_df.to_numpy(dtype="float64", copy=False)
     w = w_df.to_numpy(dtype="float64", copy=False)
@@ -190,11 +233,14 @@ def run_backtest(
 
     if settings.compute_ic:
         fwd = ret_df.shift(-delay)
-        ic_s = M.xs_spearman(f, fwd, min_names=max(10, settings.min_names // 2))
+        min_ic_names = max(10, settings.min_names // 2)
+        ic_s = M.xs_spearman(f, fwd, min_names=min_ic_names)
+        pearson_s = M.xs_pearson(f, fwd, min_names=min_ic_names)
     else:
         ic_s = pd.Series(np.nan, index=idx, name="ic")
+        pearson_s = pd.Series(np.nan, index=idx, name="pearson_ic")
 
-    metrics = M.summarise_pnl(net_s, to_s, ic_s, ann=settings.ann)
+    metrics = M.summarise_pnl(net_s, to_s, ic_s, pearson_ic=pearson_s, ann=settings.ann)
     valid_counts = pd.Series(np.isfinite(f.to_numpy()).sum(axis=1), index=idx)
     metrics["n_names"] = float(valid_counts.reindex(net_s.dropna().index).mean())
     metrics["factor_coverage"] = float(np.isfinite(f.to_numpy()).mean())
@@ -208,9 +254,55 @@ def run_backtest(
         pnl=net_s,
         turnover=to_s,
         ic=ic_s,
+        pearson_ic=pearson_s,
         factor=f,
         positions=w_df if settings.keep_positions else None,
     )
+
+
+# --------------------------------------------------------------------------- #
+# sub-universe reference backtest
+# --------------------------------------------------------------------------- #
+def subuniverse_mask(panel: PanelStore, threshold: float = 0.3) -> pd.DataFrame:
+    """``if_else(rank(cap) > threshold, True, False)`` on the panel grid."""
+    if "cap" not in panel:
+        raise BacktestError("subuniverse requested but panel has no 'cap' field")
+    return panel.field("cap_rank") > float(threshold)
+
+
+def run_backtest_with_subuniverse(
+    raw: pd.DataFrame,
+    panel: PanelStore,
+    settings: BacktestSettings = BacktestSettings(),
+    universe_mask: Optional[pd.DataFrame] = None,
+) -> BacktestResult:
+    """Full-universe backtest plus the reference sub-universe one.
+
+    The primary result is untouched; ``result.subuniverse`` holds the book
+    rebuilt after masking out names whose cap rank is below
+    ``settings.subuniverse``.  Disabled when the threshold is ``None`` or
+    ``settings.compute_subuniverse`` is ``False``.
+    """
+    main = run_backtest(raw, panel, settings, universe_mask=universe_mask)
+    threshold = settings.subuniverse
+    if threshold is None or not settings.compute_subuniverse:
+        return main
+
+    mask = subuniverse_mask(panel, float(threshold))
+    if universe_mask is not None:
+        base = universe_mask.reindex(index=mask.index, columns=mask.columns)
+        mask = mask & base.fillna(False).astype(bool)
+    sub = run_backtest(raw, panel, settings, universe_mask=mask)
+    main.subuniverse = SubUniverseResult(
+        threshold=float(threshold),
+        metrics=sub.metrics,
+        pnl=sub.pnl,
+        turnover=sub.turnover,
+        ic=sub.ic,
+        pearson_ic=sub.pearson_ic,
+        factor=sub.factor,
+    )
+    return main
 
 
 def yearly_table(net: pd.Series, to: pd.Series, ic: pd.Series, ann: int) -> pd.DataFrame:
