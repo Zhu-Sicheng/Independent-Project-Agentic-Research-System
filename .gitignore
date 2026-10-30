@@ -1,0 +1,33 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+
+# generated artefacts (regenerate with `python -m factorlab gen-data`)
+data/sample/
+runs/
+pool/
+tests/_tmp/
+
+# research inputs / reports (keep the code repo small)
+references/
+references*.zip
+*.pptx
+*.pdf
+StudyPlan_*
+
+# editors / os
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# raw data drops (never commit datasets)
+data-*.zip
+data/raw/
+
