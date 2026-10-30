@@ -62,10 +62,15 @@ class GridResult:
     spec: Optional[FactorSpec] = None
     split_meta: dict = field(default_factory=dict)
     oos_yearly: Optional[pd.DataFrame] = None
+    holdout_yearly: Optional[pd.DataFrame] = None
 
     @property
     def has_oos(self) -> bool:
         return bool(self.split_meta.get("has_oos"))
+
+    @property
+    def has_holdout(self) -> bool:
+        return bool(self.split_meta.get("has_holdout"))
 
     def top(self, n: int = 5) -> pd.DataFrame:
         cols = [
@@ -83,6 +88,7 @@ class GridResult:
                 "ic",
                 "sharpe_is",
                 "sharpe_oos",
+                "sharpe_holdout",
             )
             if c in self.table.columns
         ]
@@ -127,8 +133,10 @@ class GridResult:
                 "description": self.split_meta.get("description"),
                 "is_range": self.split_meta.get("is_range"),
                 "oos_range": self.split_meta.get("oos_range"),
+                "holdout_range": self.split_meta.get("holdout_range"),
                 "n_is": self.split_meta.get("n_is"),
                 "n_oos": self.split_meta.get("n_oos"),
+                "n_holdout": self.split_meta.get("n_holdout"),
             }
             out["in_sample"] = _round_metrics(segs.get("is"))
             out["out_of_sample"] = _round_metrics(segs.get("oos"))
@@ -138,6 +146,17 @@ class GridResult:
                 and not self.oos_yearly.empty
             ):
                 out["out_of_sample"]["yearly"] = self.oos_yearly.reset_index().to_dict(
+                    orient="records"
+                )
+        if self.has_holdout:
+            segs = self.best.segments or {}
+            out["holdout"] = _round_metrics(segs.get("holdout"))
+            if (
+                out.get("holdout") is not None
+                and self.holdout_yearly is not None
+                and not self.holdout_yearly.empty
+            ):
+                out["holdout"]["yearly"] = self.holdout_yearly.reset_index().to_dict(
                     orient="records"
                 )
         return out
@@ -271,10 +290,13 @@ class GridSearch:
                 res.pnl,
                 res.turnover,
                 res.ic,
-                res.factor,
+                factor,
                 self.split_masks,
                 ann=settings.ann,
             )
+            # the full matrix is ~60 MB on a 6700 x 1200 panel; keep only the
+            # best one (grid.best_factor) instead of one per evaluation
+            res.factor = None
             row = {
                 "decay": int(decay),
                 "transform": str(transform),
@@ -292,7 +314,7 @@ class GridSearch:
         if not segments or not self.split_masks.has_oos:
             return {}
         out: dict = {}
-        for segment in ("is", "oos"):
+        for segment in ("is", "oos", "holdout"):
             metrics = segments.get(segment)
             if not metrics:
                 continue
@@ -351,10 +373,11 @@ class GridSearch:
                 refreshed.pnl,
                 refreshed.turnover,
                 refreshed.ic,
-                refreshed.factor,
+                factor,
                 self.split_masks,
                 ann=refreshed.settings.ann,
             )
+            refreshed.factor = None
             results[pos] = refreshed
             for key in ("ic", "ic_ir", "ic_positive_ratio"):
                 table.loc[pos, key] = refreshed.metrics.get(key, np.nan)
@@ -378,9 +401,18 @@ class GridSearch:
             ann=best.settings.ann,
         )
         oos_yearly = None
+        holdout_yearly = None
         if self.split_masks.has_oos:
             mask = self.split_masks.masks["oos"]
             oos_yearly = yearly_table(
+                best.pnl.loc[mask],
+                best.turnover.loc[mask],
+                best.ic.loc[mask],
+                best.settings.ann,
+            )
+        if self.split_masks.has_holdout:
+            mask = self.split_masks.masks["holdout"]
+            holdout_yearly = yearly_table(
                 best.pnl.loc[mask],
                 best.turnover.loc[mask],
                 best.ic.loc[mask],
@@ -400,6 +432,7 @@ class GridSearch:
             spec=spec,
             split_meta=dict(self.split_masks.meta),
             oos_yearly=oos_yearly,
+            holdout_yearly=holdout_yearly,
         )
 
     def _window_combos(self, slots: Sequence[int]) -> list[tuple]:
@@ -417,13 +450,16 @@ class GridSearch:
 
         rng = np.random.default_rng(self.config.seed)
         combos = [base]
+        seen = {base}
         # coordinate sweep: move one window at a time, keep the rest at the base
         for i in range(k):
             for w in allowed:
                 cand = list(base)
                 cand[i] = w
-                combos.append(tuple(cand))
-        seen = set(combos)
+                cand = tuple(cand)
+                if cand not in seen:
+                    seen.add(cand)
+                    combos.append(cand)
         budget = max_win - len(combos)
         if budget > 0:
             idx = rng.choice(len(full), size=min(budget * 3, len(full)), replace=False)

@@ -1,18 +1,20 @@
-"""In-sample / out-of-sample splitting.
+"""In-sample / out-of-sample / holdout splitting.
 
 The protocol implemented here is deliberately simple and honest:
 
 1. every factor matrix is computed on the **full** panel (factor values are
-   causal: a value at ``t`` only uses data up to ``t``), so the OOS segment
-   never benefits from future information in factor construction;
+   causal: a value at ``t`` only uses data up to ``t``), so the OOS and holdout
+   segments never benefit from future information in factor construction;
 2. the grid search **selects** its best configuration using the in-sample
    segment only;
-3. the selected configuration is then evaluated, untouched, on the holdout
-   segment and both sets of metrics are stored and reported.
+3. the selected configuration is then evaluated, untouched, on the validation
+   (OOS) and final holdout segments, and all sets of metrics are stored.
+
+With three segments the usual reading is: ``is`` = 2000-2020 (selection),
+``oos`` = 2021-2024 (validation), ``holdout`` = 2025+ (ship / no-touch).
 
 Nothing is fabricated when no split is configured: selection falls back to the
-full sample and the OOS metrics are simply absent.  Fill in
-:class:`factorlab.config.SampleSplit` once the real data dates are known.
+full sample and the extra segments are simply absent.
 """
 
 from __future__ import annotations
@@ -37,6 +39,7 @@ class SplitError(ValueError):
 
 @dataclass
 class SplitMasks:
+    #: always contains "is"; adds "oos" / "holdout" when those segments exist
     masks: dict[str, pd.Series]
     meta: dict = field(default_factory=dict)
 
@@ -44,52 +47,68 @@ class SplitMasks:
     def has_oos(self) -> bool:
         return bool(self.meta.get("has_oos", False))
 
+    @property
+    def has_holdout(self) -> bool:
+        return bool(self.meta.get("has_holdout", False))
+
     def is_mask(self) -> pd.Series:
         return self.masks["is"]
 
     def oos_mask(self) -> Optional[pd.Series]:
         return self.masks.get("oos") if self.has_oos else None
 
+    def holdout_mask(self) -> Optional[pd.Series]:
+        return self.masks.get("holdout") if self.has_holdout else None
+
     def describe(self) -> str:
         return str(self.meta.get("description", ""))
 
 
+def _as_ts(value: Optional[str]) -> Optional[pd.Timestamp]:
+    return pd.Timestamp(value) if value else None
+
+
 def resolve_split(dates, split: Optional[SampleSplit]) -> SplitMasks:
-    dates = pd.DatetimeIndex(sorted(pd.DatetimeIndex(dates)))
+    dates = pd.DatetimeIndex(sorted(pd.to_datetime(dates)))
     if split is None or not split.is_configured():
         return SplitMasks(
             masks={
                 "is": pd.Series(True, index=dates),
-                "oos": pd.Series(False, index=dates),
             },
             meta={
                 "mode": "none",
                 "has_oos": False,
+                "has_holdout": False,
                 "n_is": int(len(dates)),
                 "n_oos": 0,
+                "n_holdout": 0,
                 "train_frac": None,
                 "is_range": [str(dates[0].date()), str(dates[-1].date())],
                 "oos_range": None,
+                "holdout_range": None,
                 "description": (split or SampleSplit()).describe(),
                 "warnings": [],
             },
         )
 
     warnings: list[str] = []
+
+    # ---- 1) in-sample / validation ------------------------------------
     if split.train_frac is not None:
         frac = float(split.train_frac)
         if not (MIN_TRAIN_FRAC <= frac <= MAX_TRAIN_FRAC):
             raise SplitError(
-                f"train_frac must be between {MIN_TRAIN_FRAC} and {MAX_TRAIN_FRAC}, got {frac}"
+                f"train_frac must be between {MIN_TRAIN_FRAC} and {MAX_TRAIN_FRAC}, "
+                f"got {frac}"
             )
         cut = int(round(len(dates) * frac))
         is_dates, oos_dates = dates[:cut], dates[cut:]
         mode = "fraction"
     else:
-        train_start = pd.Timestamp(split.train_start) if split.train_start else dates[0]
-        train_end = pd.Timestamp(split.train_end) if split.train_end else None
-        test_start = pd.Timestamp(split.test_start) if split.test_start else None
-        test_end = pd.Timestamp(split.test_end) if split.test_end else dates[-1]
+        train_start = _as_ts(split.train_start) or dates[0]
+        train_end = _as_ts(split.train_end)
+        test_start = _as_ts(split.test_start)
+        test_end = _as_ts(split.test_end) or dates[-1]
 
         if train_end is None:
             if test_start is None:
@@ -109,46 +128,89 @@ def resolve_split(dates, split: Optional[SampleSplit]) -> SplitMasks:
         is_mask_full = (dates >= train_start) & (dates <= train_end)
         oos_mask_full = (dates >= test_start) & (dates <= test_end)
         if (is_mask_full & oos_mask_full).any():
-            raise SplitError("in-sample and out-of-sample ranges overlap")
+            raise SplitError("in-sample and validation ranges overlap")
         is_dates, oos_dates = dates[is_mask_full], dates[oos_mask_full]
         mode = "date"
 
+    # ---- 2) carve the holdout out of the tail --------------------------
+    holdout_dates = pd.DatetimeIndex([])
+    if split.holdout_start or split.holdout_end:
+        if split.holdout_start:
+            holdout_start = _as_ts(split.holdout_start)
+        elif len(oos_dates):
+            after = dates[dates > oos_dates[-1]]
+            if after.empty:
+                raise SplitError("no dates after the validation segment for a holdout")
+            holdout_start = after[0]
+        else:
+            raise SplitError("holdout requested but the validation segment is empty")
+        holdout_end = _as_ts(split.holdout_end) or dates[-1]
+
+        if split.test_end and holdout_start <= _as_ts(split.test_end):
+            raise SplitError(
+                "holdout_start must be after test_end (validation / holdout overlap)"
+            )
+        if len(is_dates) and holdout_start <= is_dates[-1]:
+            raise SplitError("holdout_start falls inside the in-sample segment")
+
+        holdout_mask_full = (dates >= holdout_start) & (dates <= holdout_end)
+        holdout_dates = dates[holdout_mask_full]
+        oos_dates = oos_dates[oos_dates < holdout_start]
+
+    # ---- 3) validate ----------------------------------------------------
     if len(is_dates) < MIN_SEGMENT_DAYS:
         raise SplitError(
             f"in-sample segment has only {len(is_dates)} days; need >= {MIN_SEGMENT_DAYS}"
         )
     if len(oos_dates) < MIN_SEGMENT_DAYS:
         raise SplitError(
-            f"out-of-sample segment has only {len(oos_dates)} days; need >= {MIN_SEGMENT_DAYS}"
+            f"validation segment has only {len(oos_dates)} days; need >= {MIN_SEGMENT_DAYS}"
         )
-    for label, seg in (("in-sample", is_dates), ("out-of-sample", oos_dates)):
-        if len(seg) < COMFORTABLE_SEGMENT_DAYS:
+    if (split.holdout_start or split.holdout_end) and len(holdout_dates) < MIN_SEGMENT_DAYS:
+        raise SplitError(
+            f"holdout segment has only {len(holdout_dates)} days; need >= "
+            f"{MIN_SEGMENT_DAYS}"
+        )
+    for label, seg in (
+        ("in-sample", is_dates),
+        ("validation", oos_dates),
+        ("holdout", holdout_dates),
+    ):
+        if len(seg) and len(seg) < COMFORTABLE_SEGMENT_DAYS:
             warnings.append(
                 f"{label} segment has only {len(seg)} days; metrics will be noisy"
             )
 
-    is_mask = dates.isin(is_dates)
-    oos_mask = dates.isin(oos_dates)
+    masks = {
+        "is": pd.Series(dates.isin(is_dates), index=dates),
+        "oos": pd.Series(dates.isin(oos_dates), index=dates),
+    }
+    if len(holdout_dates):
+        masks["holdout"] = pd.Series(dates.isin(holdout_dates), index=dates)
+
     meta = {
         "mode": mode,
-        "has_oos": True,
+        "has_oos": bool(len(oos_dates)),
+        "has_holdout": bool(len(holdout_dates)),
         "n_is": int(len(is_dates)),
         "n_oos": int(len(oos_dates)),
+        "n_holdout": int(len(holdout_dates)),
         "train_frac": (
-            float(split.train_frac) if split.train_frac is not None else round(len(is_dates) / len(dates), 4)
+            float(split.train_frac)
+            if split.train_frac is not None
+            else round(len(is_dates) / len(dates), 4)
         ),
         "is_range": [str(is_dates[0].date()), str(is_dates[-1].date())],
         "oos_range": [str(oos_dates[0].date()), str(oos_dates[-1].date())],
+        "holdout_range": (
+            [str(holdout_dates[0].date()), str(holdout_dates[-1].date())]
+            if len(holdout_dates)
+            else None
+        ),
         "description": split.describe(),
         "warnings": warnings,
     }
-    return SplitMasks(
-        masks={
-            "is": pd.Series(is_mask, index=dates),
-            "oos": pd.Series(oos_mask, index=dates),
-        },
-        meta=meta,
-    )
+    return SplitMasks(masks=masks, meta=meta)
 
 
 # --------------------------------------------------------------------------- #
@@ -162,11 +224,9 @@ def segment_metrics(
     masks: "SplitMasks",
     ann: int = 252,
 ) -> dict[str, dict]:
-    """Summarise the same pnl series on the full / IS / OOS segments."""
+    """Summarise the same pnl series on the full / IS / OOS / holdout segments."""
     out: dict[str, dict] = {}
     for name, mask in masks.masks.items():
-        if name == "oos" and not masks.has_oos:
-            continue
         if not bool(mask.any()):
             continue
         sub_pnl = pnl.loc[mask]

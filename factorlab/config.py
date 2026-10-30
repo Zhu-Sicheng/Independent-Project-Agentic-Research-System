@@ -158,17 +158,20 @@ class LLMSettings:
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
 class SampleSplit:
-    """Where to cut the sample into in-sample (selection) and out-of-sample.
+    """Where to cut the sample into in-sample / out-of-sample / holdout.
 
-    The cut is intentionally left **unset** until the real data arrives: with no
-    values filled in, ``is_configured()`` is False and the pipeline runs on the
-    full sample (selection == full sample, no OOS metrics).  Fill in *either*
+    Three segments, all date ranges inclusive:
 
-    * ``train_frac`` (e.g. 0.7 of the dates), or
-    * ``train_end`` and/or ``test_start`` (explicit dates, both inclusive),
+    * ``is``  — ``[train_start, train_end]``: the only segment the grid search
+      may use to *select* a configuration;
+    * ``oos`` — ``[test_start, test_end]``: untouched during selection, used to
+      check that the in-sample edge survives (validation);
+    * ``holdout`` — ``[holdout_start, holdout_end]``: the final untouched
+      sample, ideally never looked at until a factor is ready to ship.
 
-    and every grid search will then select on the in-sample segment only and
-    report the untouched out-of-sample segment next to it.
+    With no values filled in, ``is_configured()`` is False and the whole sample
+    is used for selection (no OOS / holdout metrics).  Set the ranges by date,
+    or use ``train_frac`` to cut the first part of the dates as in-sample.
     """
 
     train_start: Optional[str] = None
@@ -176,6 +179,8 @@ class SampleSplit:
     test_start: Optional[str] = None
     test_end: Optional[str] = None
     train_frac: Optional[float] = None
+    holdout_start: Optional[str] = None
+    holdout_end: Optional[str] = None
 
     def is_configured(self) -> bool:
         return any(
@@ -186,13 +191,15 @@ class SampleSplit:
                 self.test_start,
                 self.test_end,
                 self.train_frac,
+                self.holdout_start,
+                self.holdout_end,
             )
         )
 
     def describe(self) -> str:
         if not self.is_configured():
             return "not configured (full sample used for selection)"
-        if self.train_frac is not None:
+        if self.train_frac is not None and not (self.holdout_start or self.holdout_end):
             return f"fractional: first {self.train_frac:.0%} of dates are in-sample"
         bits = []
         if self.train_start:
@@ -203,7 +210,20 @@ class SampleSplit:
             bits.append(f"OOS from {self.test_start}")
         if self.test_end:
             bits.append(f"OOS to {self.test_end}")
+        if self.holdout_start:
+            bits.append(f"holdout from {self.holdout_start}")
+        if self.holdout_end:
+            bits.append(f"holdout to {self.holdout_end}")
         return "date-based: " + ", ".join(bits)
+
+
+#: the convention used for the US equity panel in this project
+US_EQUITY_SPLIT = SampleSplit(
+    train_end="2020-12-31",
+    test_start="2021-01-01",
+    test_end="2024-12-31",
+    holdout_start="2025-01-01",
+)
 
 
 # --------------------------------------------------------------------------- #

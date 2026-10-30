@@ -31,3 +31,5 @@ Thumbs.db
 data-*.zip
 data/raw/
 
+
+*.log

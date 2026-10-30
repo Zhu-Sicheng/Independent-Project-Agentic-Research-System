@@ -63,7 +63,8 @@ class MiningLoop:
         self.attempts: list[Attempt] = []
         self.added: list[str] = []
         self._hypotheses: dict[str, dict] = {}
-        self.split_masks = resolve_split(panel.dates, self.config.split)
+        self.split = self.config.split or panel.meta.get("default_split")
+        self.split_masks = resolve_split(panel.dates, self.split)
         self.run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + (f"-{run_tag}" if run_tag else "")
         self.run_dir = Path(out_dir or DEFAULT_RUNS_DIR) / self.run_id
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -83,8 +84,9 @@ class MiningLoop:
         )
         self._log(
             f"split: {self.split_masks.describe()} "
-            f"(IS {self.split_masks.meta.get('n_is')} days, "
-            f"OOS {self.split_masks.meta.get('n_oos')} days)"
+            f"(IS {self.split_masks.meta.get('n_is')}d / OOS "
+            f"{self.split_masks.meta.get('n_oos')}d / holdout "
+            f"{self.split_masks.meta.get('n_holdout')}d)"
         )
         for warning in self.split_masks.meta.get("warnings", []):
             self._log(f"  ! {warning}")
@@ -158,7 +160,7 @@ class MiningLoop:
                 self.panel,
                 self.config.grid,
                 self.config.backtest,
-                split=self.config.split,
+                split=self.split,
             ).run_spec(spec)
             record.elapsed_s = round(time.time() - started, 1)
             best = grid.best.metrics
@@ -174,6 +176,13 @@ class MiningLoop:
                     f"    out-of-sample -> sharpe {oos.get('sharpe', float('nan')):.2f}, "
                     f"ann {oos.get('ann_return', float('nan')):.1%} "
                     f"({self.split_masks.meta.get('oos_range')})"
+                )
+            if grid.has_holdout:
+                hold = (grid.best.segments or {}).get("holdout", {})
+                self._log(
+                    f"    holdout      -> sharpe {hold.get('sharpe', float('nan')):.2f}, "
+                    f"ann {hold.get('ann_return', float('nan')):.1%} "
+                    f"({self.split_masks.meta.get('holdout_range')})"
                 )
             review = self.critic.review(
                 hypothesis, spec, grid, history, self.panel, self.config.max_rounds
@@ -237,6 +246,7 @@ class MiningLoop:
     def _write_report(self, panel_summary: dict) -> None:
         split_meta = self.split_masks.meta
         has_oos = bool(split_meta.get("has_oos"))
+        has_holdout = bool(split_meta.get("has_holdout"))
         lines = [
             "# Factor mining run",
             "",
@@ -252,6 +262,12 @@ class MiningLoop:
                 f"  - in-sample {split_meta.get('is_range')} "
                 f"({split_meta.get('n_is')} days) / out-of-sample "
                 f"{split_meta.get('oos_range')} ({split_meta.get('n_oos')} days)"
+                + (
+                    f" / holdout {split_meta.get('holdout_range')} "
+                    f"({split_meta.get('n_holdout')} days)"
+                    if has_holdout
+                    else ""
+                )
             )
         else:
             lines.append(
@@ -261,6 +277,7 @@ class MiningLoop:
         lines += ["", "## Hypotheses and decisions", ""]
 
         any_oos = any((a.grid or {}).get("in_sample") for a in self.attempts)
+        any_holdout = any((a.grid or {}).get("holdout") for a in self.attempts)
         cols = [
             "hypothesis",
             "attempt",
@@ -274,6 +291,8 @@ class MiningLoop:
         ]
         if any_oos:
             cols += ["sharpe IS", "sharpe OOS"]
+        if any_holdout:
+            cols += ["sharpe Holdout"]
         lines.append("| " + " | ".join(cols) + " |")
         lines.append("|" + "|".join(["---"] * len(cols)) + "|")
 
@@ -300,6 +319,8 @@ class MiningLoop:
                     _fmt((grid.get("in_sample") or {}).get("sharpe"), 2),
                     _fmt((grid.get("out_of_sample") or {}).get("sharpe"), 2),
                 ]
+            if any_holdout:
+                cells += [_fmt((grid.get("holdout") or {}).get("sharpe"), 2)]
             lines.append("| " + " | ".join(cells) + " |")
 
         for name, a in last_by_hyp.items():
@@ -329,7 +350,8 @@ class MiningLoop:
 
             ins = grid.get("in_sample")
             oos = grid.get("out_of_sample")
-            if ins or oos:
+            hold = grid.get("holdout")
+            if ins or oos or hold:
                 lines.append(
                     "- **in-sample**: "
                     + _segment_line(ins)
@@ -340,6 +362,12 @@ class MiningLoop:
                     + _segment_line(oos)
                     + (f"  ({_range_str(split_meta.get('oos_range'))})" if oos else "")
                 )
+            if hold:
+                lines.append(
+                    "- **holdout**: "
+                    + _segment_line(hold)
+                    + f"  ({_range_str(split_meta.get('holdout_range'))})"
+                )
 
             yearly = grid.get("yearly") or []
             if yearly:
@@ -349,6 +377,21 @@ class MiningLoop:
                     "|---|---|---|---|---|---|",
                 ]
                 for y in yearly:
+                    lines.append(
+                        f"| {y.get('year')} | {_fmt_pct(y.get('total_return'))} | "
+                        f"{_fmt(y.get('sharpe'), 2)} | {_fmt(y.get('turnover'), 1)} | "
+                        f"{_fmt_pct(y.get('max_drawdown'))} | {_fmt(y.get('ic'), 3)} |"
+                    )
+            hold_yearly = (hold or {}).get("yearly") if isinstance(hold, dict) else None
+            if hold_yearly:
+                lines += [
+                    "",
+                    "holdout by year:",
+                    "",
+                    "| year | return | sharpe | turnover | maxDD | IC |",
+                    "|---|---|---|---|---|---|",
+                ]
+                for y in hold_yearly:
                     lines.append(
                         f"| {y.get('year')} | {_fmt_pct(y.get('total_return'))} | "
                         f"{_fmt(y.get('sharpe'), 2)} | {_fmt(y.get('turnover'), 1)} | "
@@ -381,6 +424,11 @@ class MiningLoop:
             ]
             if "sharpe_oos" in pool_summary.columns and pool_summary["sharpe_oos"].notna().any():
                 pool_cols.append("sharpe_oos")
+            if (
+                "sharpe_holdout" in pool_summary.columns
+                and pool_summary["sharpe_holdout"].notna().any()
+            ):
+                pool_cols.append("sharpe_holdout")
             pool_cols += ["max_abs_xs_corr", "max_abs_pnl_corr"]
             lines += [
                 "",

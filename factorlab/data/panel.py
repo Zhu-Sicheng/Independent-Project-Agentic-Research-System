@@ -146,6 +146,8 @@ class PanelStore:
             return self.fields["close"].pct_change(fill_method=None)
         if key == "log_returns" and "close" in self.fields:
             return np.log(self.fields["close"]).diff()
+        if key == "amount" and "close" in self.fields and "volume" in self.fields:
+            return self.fields["close"] * self.fields["volume"]
         if key == "vwap" and "amount" in self.fields and "volume" in self.fields:
             vol = self.fields["volume"].replace(0.0, np.nan)
             return self.fields["amount"] / vol

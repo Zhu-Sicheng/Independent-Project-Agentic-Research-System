@@ -163,7 +163,27 @@ def load_panel(
     if start or end:
         panel = panel.subset(start, end)
     panel.meta["source"] = str(path)
+    _attach_build_meta(panel, path)
     return panel
+
+
+def _attach_build_meta(panel: PanelStore, path: Path) -> None:
+    """Pick up ``meta/manifest.json`` written by ``build-data`` (default split)."""
+    manifest = path.parent / "meta" / "manifest.json"
+    if not manifest.exists():
+        return
+    try:
+        meta = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    panel.meta["build"] = {
+        k: meta.get(k) for k in ("shape", "start", "end", "names_per_date")
+    }
+    split = meta.get("default_split")
+    if split:
+        from ..config import SampleSplit
+
+        panel.meta["default_split"] = SampleSplit(**split)
 
 
 def save_panel(panel: PanelStore, out_dir: str | Path) -> Path:

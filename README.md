@@ -21,25 +21,30 @@ Agent 3 评审：接受 / 优化 / 放弃（结合假设合理性）
 因子池（表达式 + 矩阵 + 绩效 + 截面/时序相关性）
 ```
 
-当前版本可以在**没有真实数据、没有 LLM key** 的情况下完整跑通（内置合成数据 + 规则版 agent）。
-拿到真实数据后，只需要替换 `factorlab/data` 的加载器；接上 LLM 后只需配环境变量。
+真实数据已经接入：S&P 500 成分股 2000-2026 的日频量价与市值面板，point-in-time 成分过滤，
+样本切分为 2000-2020（选择）/ 2021-2024（样本外）/ 2025+（真正样本外）。
+没有 LLM key 时会自动退回规则版 agent，流程与接 LLM 后完全一致。
 
 ---
 
 ## 1. 快速开始
 
 ```powershell
-# 1) 生成一份合成量价数据（300 只股票，2018-2024，按年一个 parquet）
-python -m factorlab gen-data
+# 0) 真实数据：原始 CSV -> 清洗后的面板（约 20 秒，输出 data/processed/）
+python -m factorlab build-data --raw data/raw --out data/processed
 
-# 2) 跑一次完整挖掘（3 个假设、每个最多 2 轮优化、离线规则版 agent）
-python -m factorlab demo --hypotheses 3 --rounds 2 --max-evals 200 --offline
+# 1) 在真实数据上挖掘（自动使用 2000-2020 样本内 / 2021-2024 样本外 / 2025+ holdout）
+python -m factorlab run --data data/processed/panel --hypotheses 3 --rounds 2 --max-evals 120 --offline
 
-# 想同时看到 accept / optimize / abandon 三种结局，跑满 8 条假设（约 2.5 分钟）
-python -m factorlab demo --hypotheses 8 --rounds 2 --max-evals 100 --offline
-
-# 3) 查看因子池与相关性
+# 2) 查看因子池与相关性
 python -m factorlab pool
+```
+
+合成数据（没有真实数据时用来跑通流程）：
+
+```powershell
+python -m factorlab gen-data
+python -m factorlab demo --hypotheses 8 --rounds 2 --max-evals 100 --offline
 ```
 
 产物：
@@ -48,7 +53,7 @@ python -m factorlab pool
 runs/<run_id>/report.md      # 假设、每次尝试、网格最优配置、分年绩效、因子池
 runs/<run_id>/attempts.jsonl # 每次尝试的完整 JSON 记录
 runs/<run_id>/equity.png     # 入池因子的累计净值
-pool/                        # 因子池（见第 6 节）
+pool/                        # 因子池（见第 7 节）
 ```
 
 单表达式快速回测：
@@ -59,7 +64,7 @@ python -m factorlab expr --expression="ts_std(returns,20)" --grid     # 走完�
 ```
 
 > PowerShell 里以 `-` 开头的表达式要用 `--expression="..."` 的等号写法，否则会被当成参数名。
-> 测试：`python -m unittest discover -s tests`（42 个用例）。
+> 测试：`python -m unittest discover -s tests`（45 个用例）。
 
 ---
 
@@ -72,6 +77,7 @@ factorlab/
     panel.py           # PanelStore：date x ticker 矩阵容器 + 派生字段
     loader.py          # 长表 / 宽表 / 按年分文件 的读取，统一成 PanelStore
     sample.py          # 合成数据生成器（带真实因子结构，无未来函数）
+    us_equity.py       # 真实数据：逐票 CSV + 成分股区间 -> 面板 + 元数据
   expr/
     ops.py             # 算子注册表（同时是给 agent 的算子说明书）
     parser.py          # 表达式 tokenizer + 递归下降解析器 + AST 改写
@@ -83,6 +89,7 @@ factorlab/
     engine.py          # 因子矩阵 -> 权重 -> 日频 pnl，含分年绩效
     metrics.py         # sharpe / turnover / maxdd / IC / 截面 spearman / 时序 pearson
     grid.py            # 网格搜索 + 窗口替换 + 结果排名
+    split.py           # 样本内 / 样本外 / holdout 切分与分段绩效
   agents/
     llm.py             # OpenAI 兼容 / Anthropic / 离线 三种客户端
     prompts.py         # 三个 agent 的 system / user prompt 模板
@@ -94,43 +101,91 @@ factorlab/
     pool.py            # 因子池存储 + 相关性计算
   orchestrator.py      # 挖掘主循环、日志、报告、净值图
   cli.py               # 命令行入口
+docs/
+  agent_contracts.md   # 2.1 / 2.2 / 3 的 JSON 接口契约
 ```
 
 ---
 
-## 3. 数据模块（以后扩充的入口）
+## 3. 数据模块
 
-`PanelStore` 只做一件事：持有若干张对齐的 `日期 x 股票` 浮点矩阵，并按名字取用。
+### 3.1 真实数据（CRSP 风格美股）
+
+原始数据在 `data/raw/`：1200 个 CSV，逐票 `s<permno>.csv`（`Adj_Open/High/Low/Close/Volume/MktCap`），
+外加 `MASTER_UNIVERSE_sp500_membership_extended_asOf20260930_v2.csv`（成分股进出区间）、
+`permno_to_ticker_mapping.csv`（permno → ticker）、`security_master...csv`（GICS 行业）和 SPY 行情。
+
+一条命令把原始文件清洗成研究面板：
+
+```powershell
+python -m factorlab build-data --raw data/raw --out data/processed
+```
+
+输出：
+
+```
+data/processed/
+  panel/
+    open.parquet high.parquet low.parquet close.parquet volume.parquet cap.parquet
+  meta/
+    security_master.csv          # permno / ticker / gvkey / GICS
+    universe_intervals.csv       # permno, start_date, end_date（point-in-time）
+    manifest.json                # 规模、覆盖率、收益分布、默认切分
+```
+
+每个 parquet 就是一张 **index=日期、columns=permno** 的矩阵，float32 + zstd。
+当前规模：**6726 个交易日（2000-01-03 → 2026-09-30）× 1195 只股票**，每日约 502 只在成分内，
+字段覆盖率 42%（分母是"全历史出现过的股票"，分子是"当天确实是成分股"）。
+
+**清洗规则**（`factorlab/data/us_equity.py`）：
+
+| 步骤 | 处理 |
+|---|---|
+| 价格口径 | 直接用数据商的 `Adj_*`（已做拆股与分红调整），不再二次复权 |
+| 成分股 | 只在 `start_date <= t <= end_date` 的区间内保留该股票，退市后自然消失，**无幸存者偏差** |
+| 非法值 | `close/high/low/open <= 0`、`volume <= 0`、`cap <= 0` 置 NaN；表内已无零成交量 |
+| 重复 | 同一 `(permno, date)` 去重保留最后一条 |
+| 缺失 | **不做前向填充**；停牌/未上市就是 NaN，由因子和回测按缺失处理 |
+| 代码变更 | 列用 permno（稳定），ticker 会复用（43 个重名），映射表放 `meta/security_master.csv` |
+| 派生字段 | `returns`、`log_returns`、`amount = close*volume`、`adv20`、`cap_rank` 在 `PanelStore` 中按需生成 |
+
+数据体检（`manifest.json` 里有完整结果）：每日 498–508 只成分股；日收益均值 0.048%、标准差 2.4%；
+`|ret| > 50%` 的样本 90 个（占 3.4M 的 0.003%），集中在 2008 年金融危机与个别并购/逼空日，
+保留了未删除——是否要截尾应该在回测口径里决定，而不是在数据层偷偷改。
+
+### 3.2 读取
+
+```python
+from factorlab.data import load_processed
+
+panel = load_processed("data/processed/panel")   # PanelStore
+panel.field("close")                             # DataFrame(date x permno)
+panel.field("returns")                           # 派生
+panel.summary()
+panel.meta["default_split"]                      # 数据自带的切分约定
+```
+
+通用格式（长表 / 宽表 / 按年分文件）仍然走 `load_panel()`：
 
 ```python
 from factorlab.data import load_panel
-
-panel = load_panel("data/raw")           # 目录（按年分的 parquet/csv）或单个文件
-panel.field("close")                     # -> DataFrame(date x ticker)
-panel.field("returns")                   # 派生：close.pct_change()
-panel.summary()                          # 给 agent / 报告用的数据画像
-```
-
-**接受的格式**
-
-| 形式 | 说明 |
-|---|---|
-| 长表 | 必须有 `date` + `ticker`（自动识别 `symbol/code/asset/sid/trade_date/...`），其余数值列即字段 |
-| 宽表目录 | 一个字段一个文件（文件名即字段名），index 为日期，columns 为股票 |
-| 单文件宽表 | 列为 `MultiIndex(field, ticker)` |
-
-**自动派生字段**：`returns`、`log_returns`、`vwap`（amount/volume）、`adv20`、`cap_rank`。
-真实数据接进来后如果字段名不同，在 `PanelStore.ALIASES` 里加别名即可，例如 `px -> close`。
-
-**新增数据源的方式**：写一个返回 `dict[字段名, DataFrame]` 的函数，然后
-
-```python
-from factorlab.data import PanelStore
-panel = PanelStore.from_dict({"close": close_df, "volume": vol_df, "cap": cap_df})
+panel = load_panel("data/other")     # date+ticker 长表，或一个字段一个文件
 ```
 
 `y`（预测目标）默认 `close_to_close`，即 `close_t / close_{t-1} - 1`；
-在 `BacktestSettings(y=...)` 里可以换成任意价格字段（会取 pct_change）。等真实数据确定后再扩展。
+在 `BacktestSettings(y=...)` 里可以换成任意价格字段（会取 pct_change）。
+
+### 3.3 样本切分（已按约定设好）
+
+数据自带 `default_split`，`MiningLoop` 会自动使用：
+
+| 段 | 区间 | 用途 |
+|---|---|---|
+| 样本内 `is` | 2000-01-03 → 2020-12-31（5284 天） | **唯一**用于网格搜索选参数 |
+| 样本外 `oos` | 2021-01-04 → 2024-12-31（1005 天） | 验证，不参与选择 |
+| 真正样本外 `holdout` | 2025-01-02 → 2026-09-30（437 天） | 最后一关，平时不看 |
+
+想显式覆盖：`--train-end 2020-12-31 --oos-start 2021-01-01 --oos-end 2024-12-31 --holdout-start 2025-01-01`。
 
 ---
 

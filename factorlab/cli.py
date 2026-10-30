@@ -32,6 +32,8 @@ def _add_split(p: argparse.ArgumentParser) -> None:
     p.add_argument("--train-end", default=None, help="in-sample end date (inclusive)")
     p.add_argument("--oos-start", default=None, help="out-of-sample start date (inclusive)")
     p.add_argument("--oos-end", default=None, help="out-of-sample end date (inclusive)")
+    p.add_argument("--holdout-start", default=None, help="final holdout start date (inclusive)")
+    p.add_argument("--holdout-end", default=None, help="final holdout end date (inclusive)")
 
 
 def _split_from_args(args) -> SampleSplit | None:
@@ -41,6 +43,8 @@ def _split_from_args(args) -> SampleSplit | None:
         test_start=args.oos_start,
         test_end=args.oos_end,
         train_frac=args.train_frac,
+        holdout_start=args.holdout_start,
+        holdout_end=args.holdout_end,
     )
     return split if split.is_configured() else None
 
@@ -76,6 +80,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--tag", default="")
     run.add_argument("--offline", action="store_true", help="force the rule-based agents")
     _add_split(run)
+
+    build = sub.add_parser("build-data", help="build the processed panel from the raw CRSP extract")
+    build.add_argument("--raw", default=str(PROJECT_ROOT / "data" / "raw"))
+    build.add_argument("--out", default=str(PROJECT_ROOT / "data" / "processed"))
+    build.add_argument("--start", default="2000-01-01")
+    build.add_argument("--end", default="2026-09-30")
 
     demo = sub.add_parser("demo", help="generate sample data if needed, then run the loop")
     demo.add_argument("--pool", default=str(PROJECT_ROOT / "pool"))
@@ -119,6 +129,14 @@ def cmd_gen_data(args) -> int:
         signal_scale=args.signal_scale,
     )
     print(f"sample data written to {out}")
+    return 0
+
+
+def cmd_build_data(args) -> int:
+    from .data.us_equity import build_and_save
+
+    result = build_and_save(args.raw, args.out, start=args.start, end=args.end)
+    print(f"panel written to {result.out_dir}")
     return 0
 
 
@@ -200,6 +218,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     handlers = {
         "gen-data": cmd_gen_data,
+        "build-data": cmd_build_data,
         "run": cmd_run,
         "demo": cmd_demo,
         "expr": cmd_expr,

@@ -166,7 +166,12 @@ class TestEndToEnd(unittest.TestCase):
                 n_hypotheses=1,
                 max_rounds=1,
                 grid=GridConfig(max_evals=24),
-                split=SampleSplit(train_frac=0.7),
+                split=SampleSplit(
+                    train_end="2021-09-30",
+                    test_start="2021-10-01",
+                    test_end="2022-03-31",
+                    holdout_start="2022-04-01",
+                ),
             )
             config.llm.provider = "offline"
             config.llm.model = ""
@@ -183,6 +188,7 @@ class TestEndToEnd(unittest.TestCase):
             report = (Path(result["run_dir"]) / "report.md").read_text(encoding="utf-8")
             self.assertTrue(report)
             self.assertIn("out-of-sample", report)
+            self.assertIn("holdout", report)
             self.assertTrue((Path(result["run_dir"]) / "report.md").exists())
             self.assertTrue((Path(result["run_dir"]) / "attempts.jsonl").exists())
             self.assertGreaterEqual(result["n_factors_added"], 1)

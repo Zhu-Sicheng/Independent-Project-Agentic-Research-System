@@ -299,13 +299,21 @@ def review(
     attempts = len(history) + 1
     can_optimize = attempts < max_rounds
 
+    # the final, untouched segment is the strongest evidence available
+    holdout = summary.get("holdout") or {}
     oos = summary.get("out_of_sample") or {}
-    oos_sharpe = oos.get("sharpe") if isinstance(oos, dict) else None
+    final = holdout if isinstance(holdout, dict) and holdout.get("sharpe") is not None else oos
+    final_sharpe = final.get("sharpe") if isinstance(final, dict) else None
+    final_name = "holdout" if final is holdout else "out-of-sample"
     stability_ok = True
-    if oos_sharpe is not None and isinstance(oos_sharpe, (int, float)) and math.isfinite(oos_sharpe):
-        # a holdout that gives back more than ~60% of the in-sample edge is overfit
-        stability_ok = oos_sharpe > 0 and (sharpe <= 0 or oos_sharpe >= 0.4 * sharpe)
-    has_oos = oos_sharpe is not None and isinstance(oos_sharpe, (int, float))
+    if (
+        final_sharpe is not None
+        and isinstance(final_sharpe, (int, float))
+        and math.isfinite(final_sharpe)
+    ):
+        # giving back more than ~60% of the in-sample edge is overfitting
+        stability_ok = final_sharpe > 0 and (sharpe <= 0 or final_sharpe >= 0.4 * sharpe)
+    has_final = final_sharpe is not None and isinstance(final_sharpe, (int, float))
 
     contradicting_sign = (expected == "positive" and ic < -0.005) or (
         expected == "negative" and ic > 0.005
@@ -314,9 +322,9 @@ def review(
     if not stability_ok:
         decision = "abandon"
         reasoning = (
-            f"In-sample Sharpe {sharpe:.2f} does not survive the holdout "
-            f"(out-of-sample Sharpe {oos_sharpe:.2f}). The configuration is "
-            "selected on noise; abandon."
+            f"In-sample Sharpe {sharpe:.2f} does not survive the {final_name} "
+            f"(Sharpe {final_sharpe:.2f}). The configuration is selected on "
+            "noise; abandon."
         )
     elif sharpe >= 1.0 and pos_years >= 0.65 and maxdd > -0.35:
         decision = "accept"
@@ -325,8 +333,8 @@ def review(
             f"drawdown {maxdd:.1%}; consistent with the stated hypothesis "
             f"(IC {ic:.3f}, expected {expected})."
         )
-        if has_oos and stability_ok:
-            reasoning += f" Holdout confirms with Sharpe {oos_sharpe:.2f}."
+        if has_final and stability_ok:
+            reasoning += f" {final_name.title()} confirms with Sharpe {final_sharpe:.2f}."
     elif sharpe >= 0.35 and not contradicting_sign and can_optimize:
         decision = "optimize"
         reasoning = (

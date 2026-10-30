@@ -68,7 +68,9 @@ def forward_returns(panel: PanelStore, y: str = "close_to_close") -> pd.DataFram
     if y == "close_to_close":
         if "close" not in panel:
             raise BacktestError("panel has no 'close' field")
-        ret = panel.field("close").pct_change(fill_method=None)
+        # cached on the panel: recomputing pct_change on 8M cells per grid point
+        # is the single most wasted second in the sweep
+        ret = panel.field("returns")
     elif y == "returns":
         ret = panel.field("returns")
     elif panel.has(y):
@@ -89,7 +91,9 @@ def prepare_factor(
     Returns ``(factor_used, weights)`` where ``weights`` is the tradable book.
     Order: cap filter -> transform -> decay -> demean -> unit gross exposure.
     """
-    f = raw.reindex(index=panel.dates, columns=panel.tickers).astype("float64")
+    f = raw.reindex(index=panel.dates, columns=panel.tickers).astype(
+        "float64", copy=False
+    )
     f = f.replace([np.inf, -np.inf], np.nan)
     arr = f.to_numpy(copy=False)
 
