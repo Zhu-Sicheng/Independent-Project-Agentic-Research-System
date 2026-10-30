@@ -37,3 +37,6 @@ data/raw/
 # deploy key for this machine (never commit)
 .deploy_key*
 
+
+.ssh_home/
+
