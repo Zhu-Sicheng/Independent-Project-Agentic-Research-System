@@ -9,7 +9,6 @@ dist/
 venv/
 
 # generated artefacts (regenerate with `python -m factorlab gen-data`)
-data/sample/
 runs/
 pool/
 tests/_tmp/

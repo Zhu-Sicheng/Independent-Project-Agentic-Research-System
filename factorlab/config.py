@@ -15,7 +15,7 @@ from typing import Optional, Sequence
 # paths
 # --------------------------------------------------------------------------- #
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DATA_DIR = PROJECT_ROOT / "data" / "sample"
+DEFAULT_DATA_DIR = PROJECT_ROOT / "data" / "processed" / "panel"
 DEFAULT_POOL_DIR = PROJECT_ROOT / "pool"
 DEFAULT_RUNS_DIR = PROJECT_ROOT / "runs"
 

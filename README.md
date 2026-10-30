@@ -49,13 +49,6 @@ python -m factorlab run --data data/processed/panel --hypotheses 3 --rounds 2 --
 python -m factorlab pool
 ```
 
-Synthetic data (for smoke tests without the real feed):
-
-```powershell
-python -m factorlab gen-data
-python -m factorlab demo --hypotheses 8 --rounds 2 --max-evals 100 --offline
-```
-
 Outputs:
 
 ```
@@ -74,7 +67,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # full
 
 > In PowerShell an expression starting with `-` needs the `--expression="..."` form,
 > otherwise it is parsed as a flag.
-> Tests: `python -m unittest discover -s tests` (57 cases).
+> Tests: `python -m unittest discover -s tests` (60 cases).
 
 ### 2. Layout
 
@@ -84,7 +77,6 @@ factorlab/
   data/
     panel.py           # PanelStore: date x ticker container + derived fields
     loader.py          # long / wide / per-year files -> PanelStore
-    sample.py          # synthetic generator (real factor structure, no look-ahead)
     us_equity.py       # real data: per-ticker CSV + membership intervals -> panel
   expr/
     ops.py             # operator registry (implementation + docs)
@@ -463,17 +455,8 @@ pool.correlations()                # pairwise
 pool.report()                      # markdown
 ```
 
-Example (synthetic data, eight offline hypotheses, five accepted):
-
-| relation | factor A | factor B | xs spearman | pnl pearson |
-|---|---|---|---|---|
-| same signal | short_term_reversal | volume_weighted_reversal | 0.913 | 0.921 |
-| same signal | low_volatility_anomaly | range_compression_breakout | 0.756 | 0.754 |
-| independent | short_term_reversal | range_compression_breakout | -0.020 | 0.010 |
-
-The last row is the point: `range_compression` sounds like a new story but is
-mostly the low-volatility factor, while the script-implemented volume-weighted
-reversal is the same signal as plain reversal.
+Correlations are computed on whatever is in the pool: two factors give one row,
+n factors give n(n-1)/2. High correlation is flagged, not auto-rejected.
 
 ### 8. Known limitations / next steps
 
@@ -536,13 +519,6 @@ python -m factorlab run --data data/processed/panel --hypotheses 3 --rounds 2 --
 python -m factorlab pool
 ```
 
-合成数据（没有真实数据时用来跑通流程）：
-
-```powershell
-python -m factorlab gen-data
-python -m factorlab demo --hypotheses 8 --rounds 2 --max-evals 100 --offline
-```
-
 产物：
 
 ```
@@ -560,7 +536,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # 走�
 ```
 
 > PowerShell 里以 `-` 开头的表达式要用 `--expression="..."` 的等号写法，否则会被当成参数名。
-> 测试：`python -m unittest discover -s tests`（57 个用例）。
+> 测试：`python -m unittest discover -s tests`（60 个用例）。
 
 ### 2. 目录结构
 
@@ -570,7 +546,6 @@ factorlab/
   data/
     panel.py           # PanelStore：date x ticker 矩阵容器 + 派生字段
     loader.py          # 长表 / 宽表 / 按年分文件 的读取，统一成 PanelStore
-    sample.py          # 合成数据生成器（带真实因子结构，无未来函数）
     us_equity.py       # 真实数据：逐票 CSV + 成分股区间 -> 面板 + 元数据
   expr/
     ops.py             # 算子注册表（实现 + 说明）
@@ -914,16 +889,7 @@ pool.correlations()                # 两两相关性
 pool.report()                      # markdown
 ```
 
-示例（合成数据，离线 8 个假设、入池 5 个）：
-
-| 相关性 | factor A | factor B | xs spearman | pnl pearson |
-|---|---|---|---|---|
-| 同一信号 | short_term_reversal | volume_weighted_reversal | 0.913 | 0.921 |
-| 同一信号 | low_volatility_anomaly | range_compression_breakout | 0.756 | 0.754 |
-| 独立 | short_term_reversal | range_compression_breakout | -0.020 | 0.010 |
-
-最后一行正是因子池的价值：`range_compression` 名字听起来是「区间压缩」，实际和低波动因子高度重合；
-而「成交量加权反转」虽然实现方式（脚本）完全不同，和普通反转其实是同一个信号。
+相关性对池内任意两个因子都计算：两个因子一行，n 个因子 n(n-1)/2 行。相关性高只标记、不自动拒绝。
 
 ### 8. 已知限制 / 下一步
 
