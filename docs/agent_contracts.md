@@ -74,8 +74,9 @@ layer, so a bad result cannot tempt it to shop for a formula that fits.
 ## Agent 3 — review
 
 **In**: the hypothesis, the spec, the grid summary (`best`, `in_sample`,
-`out_of_sample`, per-year table, share of configurations with positive Sharpe)
-and the history of attempts on the same hypothesis.
+`out_of_sample`, `holdout`, per-year tables, share of configurations with
+positive Sharpe) and the history of attempts on the same hypothesis. The
+selection only ever saw `in_sample`; the other two are untouched.
 
 **Out**:
 
@@ -103,7 +104,7 @@ for hypothesis in 2.1.propose(...):
     for round in 1..max_rounds:
         validate(spec)                    # reject -> log, next hypothesis
         evidence = grid_search(spec)      # decay x transform x cap x windows
-        decision = 3.review(hypothesis, spec, evidence)
+        decision = 3.review(hypothesis, spec, evidence)  # is / oos / holdout
         if accept:    pool.add(...); break
         if optimize:  spec = decision.revised; continue
         if abandon:   break

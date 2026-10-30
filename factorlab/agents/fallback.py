@@ -285,10 +285,13 @@ def review(
     max_rounds: int = 2,
 ) -> dict:
     best = summary.get("best", {})
-    sharpe = float(best.get("sharpe") or 0.0)
-    turnover = float(best.get("turnover") or 0.0)
-    maxdd = float(best.get("max_drawdown") or 0.0)
-    ic = float(best.get("ic") or 0.0)
+    # with a holdout split the decision must be made on the selection segment;
+    # the full-sample numbers include data that was never allowed to select on
+    primary = summary.get("in_sample") or best
+    sharpe = float(primary.get("sharpe") or 0.0)
+    turnover = float(primary.get("turnover") or 0.0)
+    maxdd = float(primary.get("max_drawdown") or 0.0)
+    ic = float(primary.get("ic") or 0.0)
     expected = hypothesis.get("expected_sign", "positive")
     years = [y for y in yearly if y.get("n_days", 0) > 40]
     pos_years = (
@@ -296,24 +299,38 @@ def review(
         if years
         else 0.0
     )
+    is_yearly = primary.get("yearly") if isinstance(primary, dict) else None
+    if is_yearly:
+        years = [y for y in is_yearly if y.get("n_days", 0) > 40]
+        pos_years = (
+            sum(1 for y in years if float(y.get("total_return") or 0.0) > 0) / len(years)
+            if years
+            else pos_years
+        )
     attempts = len(history) + 1
     can_optimize = attempts < max_rounds
 
-    # the final, untouched segment is the strongest evidence available
+    # every untouched segment is evidence: validation (2021-2024) and the final
+    # holdout (2025+). A factor must survive both, not just the last one.
     holdout = summary.get("holdout") or {}
     oos = summary.get("out_of_sample") or {}
-    final = holdout if isinstance(holdout, dict) and holdout.get("sharpe") is not None else oos
-    final_sharpe = final.get("sharpe") if isinstance(final, dict) else None
-    final_name = "holdout" if final is holdout else "out-of-sample"
+    final_pairs = [
+        (name, float(m["sharpe"]))
+        for name, m in (("out-of-sample", oos), ("holdout", holdout))
+        if isinstance(m, dict)
+        and m.get("sharpe") is not None
+        and isinstance(m["sharpe"], (int, float))
+        and math.isfinite(m["sharpe"])
+    ]
+    final_sharpes = [v for _, v in final_pairs]
     stability_ok = True
-    if (
-        final_sharpe is not None
-        and isinstance(final_sharpe, (int, float))
-        and math.isfinite(final_sharpe)
-    ):
+    if final_sharpes:
         # giving back more than ~60% of the in-sample edge is overfitting
-        stability_ok = final_sharpe > 0 and (sharpe <= 0 or final_sharpe >= 0.4 * sharpe)
-    has_final = final_sharpe is not None and isinstance(final_sharpe, (int, float))
+        stability_ok = min(final_sharpes) > 0 and (
+            sharpe <= 0 or sum(final_sharpes) / len(final_sharpes) >= 0.4 * sharpe
+        )
+    has_final = bool(final_pairs)
+    final_text = ", ".join(f"{name} {value:.2f}" for name, value in final_pairs)
 
     contradicting_sign = (expected == "positive" and ic < -0.005) or (
         expected == "negative" and ic > 0.005
@@ -322,9 +339,9 @@ def review(
     if not stability_ok:
         decision = "abandon"
         reasoning = (
-            f"In-sample Sharpe {sharpe:.2f} does not survive the {final_name} "
-            f"(Sharpe {final_sharpe:.2f}). The configuration is selected on "
-            "noise; abandon."
+            f"In-sample Sharpe {sharpe:.2f} does not survive the untouched "
+            f"segments ({final_text}). The configuration is selected on noise; "
+            "abandon."
         )
     elif sharpe >= 1.0 and pos_years >= 0.65 and maxdd > -0.35:
         decision = "accept"
@@ -334,7 +351,7 @@ def review(
             f"(IC {ic:.3f}, expected {expected})."
         )
         if has_final and stability_ok:
-            reasoning += f" {final_name.title()} confirms with Sharpe {final_sharpe:.2f}."
+            reasoning += f" Untouched segments: {final_text}."
     elif sharpe >= 0.35 and not contradicting_sign and can_optimize:
         decision = "optimize"
         reasoning = (

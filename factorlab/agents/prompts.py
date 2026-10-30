@@ -167,11 +167,13 @@ Judge the *hypothesis*, not just the Sharpe: a factor with a coherent story and
 a stable but modest edge can be accepted; a high-Sharpe factor with an
 implausible mechanism and one good year should not be.
 
-When the evidence contains `in_sample` and `out_of_sample` blocks, the grid
-selected its configuration on the in-sample segment only; the holdout is the
-real test. A factor whose edge disappears out-of-sample is overfit and must be
-abandoned, no matter how good the in-sample numbers look. Prefer a modest,
-stable out-of-sample Sharpe over a large in-sample one.
+The evidence may contain three segments: `in_sample` (the grid selected its
+configuration here only), `out_of_sample` (2021-2024 validation) and `holdout`
+(2025+, the final untouched sample). Both untouched segments are evidence: a
+factor must survive both, not just the last one. A factor whose edge vanishes
+out of sample is overfit and must be abandoned no matter how good the
+in-sample numbers look. Prefer a modest, stable out-of-sample Sharpe over a
+large in-sample one.
 """
     )
 

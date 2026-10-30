@@ -61,6 +61,7 @@ class GridResult:
     failures: list[str] = field(default_factory=list)
     spec: Optional[FactorSpec] = None
     split_meta: dict = field(default_factory=dict)
+    is_yearly: Optional[pd.DataFrame] = None
     oos_yearly: Optional[pd.DataFrame] = None
     holdout_yearly: Optional[pd.DataFrame] = None
 
@@ -139,6 +140,14 @@ class GridResult:
                 "n_holdout": self.split_meta.get("n_holdout"),
             }
             out["in_sample"] = _round_metrics(segs.get("is"))
+            if (
+                out.get("in_sample") is not None
+                and self.is_yearly is not None
+                and not self.is_yearly.empty
+            ):
+                out["in_sample"]["yearly"] = self.is_yearly.reset_index().to_dict(
+                    orient="records"
+                )
             out["out_of_sample"] = _round_metrics(segs.get("oos"))
             if (
                 out.get("out_of_sample") is not None
@@ -400,8 +409,17 @@ class GridSearch:
             self.split_masks,
             ann=best.settings.ann,
         )
+        is_yearly = None
         oos_yearly = None
         holdout_yearly = None
+        if self.split_masks.has_oos:
+            mask = self.split_masks.masks["is"]
+            is_yearly = yearly_table(
+                best.pnl.loc[mask],
+                best.turnover.loc[mask],
+                best.ic.loc[mask],
+                best.settings.ann,
+            )
         if self.split_masks.has_oos:
             mask = self.split_masks.masks["oos"]
             oos_yearly = yearly_table(
@@ -431,6 +449,7 @@ class GridSearch:
             failures=failures,
             spec=spec,
             split_meta=dict(self.split_masks.meta),
+            is_yearly=is_yearly,
             oos_yearly=oos_yearly,
             holdout_yearly=holdout_yearly,
         )

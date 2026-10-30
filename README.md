@@ -281,47 +281,53 @@ def generate(panel, params):
 默认 `max_evals=200`：窗口组合过多时先做「基准 + 单窗口坐标扫描」，再随机补足；
 每个配置都完整回测，按 `sharpe` 排序（同分看 turnover）。IC 只在排名靠前的配置上重算，用于提速。
 
-### 5.3 样本外切分（接口已留，切分点待定）
+### 5.3 样本内 / 样本外 / 真正样本外
 
-真实数据日期还没确定，所以**默认不切分**：全样本用于选择，报告里会明确标注
-「样本内」。切分结构已经完整打通，等数据到位只需要填 `SampleSplit`：
+三段切分，全部是**日期闭区间**：
+
+| 段 | 字段 | 区间 | 用途 |
+|---|---|---|---|
+| 样本内 | `is` | 2000-01-03 → 2020-12-31 | **唯一**参与网格搜索选参数 |
+| 样本外 | `oos` | 2021-01-04 → 2024-12-31 | 验证，不参与选择 |
+| 真正样本外 | `holdout` | 2025-01-02 → 2026-09-30 | 最后一关 |
+
+这组日期写在 `data/processed/meta/manifest.json::default_split` 里，`MiningLoop` 自动读取；
+也可以显式覆盖：
 
 ```python
-from factorlab.config import SampleSplit, MiningConfig
+from factorlab.config import SampleSplit
 
-# 方式一：按比例（等数据到手再定 0.6 / 0.7 / 0.8）
-split = SampleSplit(train_frac=0.7)
-
-# 方式二：按日期（含首尾），中间留 gap 也可以
-split = SampleSplit(train_end="2022-12-31", test_start="2023-02-01")
-
-config = MiningConfig(n_hypotheses=5, split=split)
+SampleSplit(
+    train_end="2020-12-31",
+    test_start="2021-01-01", test_end="2024-12-31",
+    holdout_start="2025-01-01",
+)
+# 或按比例：SampleSplit(train_frac=0.8, holdout_start="2025-01-01")
 ```
 
-命令行同样支持：
-
 ```powershell
-python -m factorlab run --hypotheses 5 --train-frac 0.7
-python -m factorlab run --hypotheses 5 --train-end 2022-12-31 --oos-start 2023-02-01
+python -m factorlab run --data data/processed/panel --hypotheses 5 `
+  --train-end 2020-12-31 --oos-start 2021-01-01 --oos-end 2024-12-31 --holdout-start 2025-01-01
 ```
 
 协议（`factorlab/backtest/split.py`）：
 
 1. 因子矩阵始终在**全样本**上计算。因子是因果的（第 t 行只用 ≤t 的数据），
-   所以 OOS 段不会因为「因子在 OOS 上算」而偷看未来；
-2. 网格搜索的分辨率/窗口/decay/市值过滤**只在样本内**打分排序；
-3. 选出的配置原封不动地在样本外重跑，两段指标都存、都报；
-4. 不切分时退回全样本选择，OOS 指标为空——不会编造。
+   所以样本外/真正样本外不会因为「因子在这段上算」而偷看未来；
+2. 网格搜索的窗口/decay/rank/sign/市值过滤**只在样本内**打分排序；
+3. 选出的配置原封不动地在另外两段重跑，三段指标都存、都报；
+4. 切的是 **pnl 序列**而不是重算子面板，因此没有 rolling 预热损耗，
+   样本外第一天的换手也按真实持仓变化计算；
+5. 不切分时退回全样本选择，额外两段为空——不会编造。
 
-实现上切的是 **pnl 序列**而不是重算子面板，因此没有 rolling 预热损耗，
-OOS 第一天的换手也按真实持仓变化计算。落库位置：
+落库位置：
 
-- 网格表：`sharpe_is` / `sharpe_oos`（以及 `ann_return_*`、`turnover_*`、`max_drawdown_*`、`ic_*`）
-- 因子池：`meta.json` 里的 `segments.is` / `segments.oos`，`pool summary` 会多出 `sharpe_oos` 列
-- 报告：决策表多两列 `sharpe IS` / `sharpe OOS`，每个因子下面给出两段指标 + OOS 分年表
+- 网格表：`sharpe_is` / `sharpe_oos` / `sharpe_holdout`（以及 `ann_return_*`、`turnover_*`、`max_drawdown_*`、`ic_*`）
+- 因子池：`meta.json` 的 `segments.is` / `segments.oos` / `segments.holdout`，`pool summary` 多出对应两列
+- 报告：决策表多 `sharpe IS` / `sharpe OOS` / `sharpe Holdout` 三列，每个因子下面三段指标 + 分段分年表
 
-Agent 3 也会看到这两段：离线规则里「样本内好、样本外回吐超过 60% 优势」直接判定为过拟合并放弃，
-LLM 的 prompt 里同样明确要求以样本外为准。
+Agent 3 以**样本内**做判断，用另外两段做过拟合检查：两段中任意一段为负、或平均回吐超过样本内优势的 60%，
+直接判过拟合并放弃。LLM 的 prompt 同样写明「holdout 是最后一关，样本内好看但样本外塌掉的必须放弃」。
 
 
 ---
