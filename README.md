@@ -1,4 +1,492 @@
-# factorlab — Agent 驱动的因子挖掘流水线（初版）
+# factorlab
+
+Agentic factor mining on US equity price/volume panels.
+
+**[English](#english) · [中文](#chinese)**
+
+---
+
+<a id="english"></a>
+
+## English
+
+From several years of daily price/volume data to a curated factor pool:
+
+```
+panel
+  │
+  ▼
+Agent 2.1  economist (natural language, no code)
+  │
+  ▼
+Agent 2.2  implementer (expression DSL or per-day python script)
+  │
+  ▼
+backtest + grid search (decay / rank|sign / cap filter / windows)
+  │
+  ▼
+Agent 3  research director (accept / optimize / abandon)
+  │
+  ▼
+factor pool (expression + matrix + performance + correlations)
+```
+
+The real dataset is wired in: daily OHLCV and market cap for S&P 500 members,
+2000-2026, with point-in-time membership filtering and a three-way sample split
+(2000-2020 selection / 2021-2024 validation / 2025+ holdout). Without an LLM key
+the pipeline falls back to rule-based agents behind exactly the same interface.
+
+### 1. Quick start
+
+```powershell
+# 0) real data: raw CSVs -> cleaned panel (~20 s, writes data/processed/)
+python -m factorlab build-data --raw data/raw --out data/processed
+
+# 1) mine on the real panel (uses 2000-2020 IS / 2021-2024 OOS / 2025+ holdout)
+python -m factorlab run --data data/processed/panel --hypotheses 3 --rounds 2 --max-evals 120 --offline
+
+# 2) inspect the pool and correlations
+python -m factorlab pool
+```
+
+Synthetic data (for smoke tests without the real feed):
+
+```powershell
+python -m factorlab gen-data
+python -m factorlab demo --hypotheses 8 --rounds 2 --max-evals 100 --offline
+```
+
+Outputs:
+
+```
+runs/<run_id>/report.md      # hypotheses, attempts, best config, yearly stats, pool
+runs/<run_id>/attempts.jsonl # full JSON record of every attempt
+runs/<run_id>/equity.png     # cumulative pnl of the accepted factors
+pool/                        # factor pool (see section 7)
+```
+
+Single-expression backtest:
+
+```powershell
+python -m factorlab expr --expression="-rank(ts_mean(returns,5))" --transform none
+python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # full grid
+```
+
+> In PowerShell an expression starting with `-` needs the `--expression="..."` form,
+> otherwise it is parsed as a flag.
+> Tests: `python -m unittest discover -s tests` (57 cases).
+
+### 2. Layout
+
+```
+factorlab/
+  config.py            # backtest settings, grid space, LLM config, mining loop
+  data/
+    panel.py           # PanelStore: date x ticker container + derived fields
+    loader.py          # long / wide / per-year files -> PanelStore
+    sample.py          # synthetic generator (real factor structure, no look-ahead)
+    us_equity.py       # real data: per-ticker CSV + membership intervals -> panel
+  expr/
+    ops.py             # operator registry (implementation + docs)
+    approved.py        # the whitelist agents may use (ts_operators.md)
+    parser.py          # tokenizer + recursive-descent parser + AST rewriting
+    evaluator.py       # AST evaluation on a panel
+    validate.py        # static checks: fields, operators, windows, complexity
+    script.py          # validation and restricted execution of per-day scripts
+    spec.py            # FactorSpec: the expression/script carrier
+  backtest/
+    engine.py          # factor matrix -> weights -> daily pnl + yearly stats
+    metrics.py         # sharpe / turnover / maxdd / IC / xs spearman / pnl pearson
+    grid.py            # grid search + window substitution + ranking
+    split.py           # is / oos / holdout segments and per-segment metrics
+  agents/
+    llm.py             # OpenAI-compatible / Anthropic / offline clients
+    prompts.py         # system and user prompts for the three agents
+    hypothesis.py      # Agent 2.1 economist: data -> hypothesis
+    implementer.py     # Agent 2.2 implementer: hypothesis -> expression/script
+    critic.py          # Agent 3 research director: accept / optimize / abandon
+    fallback.py        # rule-based research library used without an LLM
+  pool/
+    pool.py            # factor pool storage + correlations
+  orchestrator.py      # mining loop, logging, report, equity plot
+  cli.py               # command line entry point
+docs/
+  agent_contracts.md   # JSON contracts between 2.1 / 2.2 / 3
+  operators.md         # approved operator signatures and definitions
+```
+
+### 3. Data
+
+#### 3.1 Real data (CRSP-style US equities)
+
+Raw files live in `data/raw/`: 1200 CSVs — one `s<permno>.csv` per security
+(`Adj_Open/High/Low/Close/Volume/MktCap`), plus
+`MASTER_UNIVERSE_sp500_membership_extended_asOf20260930_v2.csv` (membership
+intervals), `permno_to_ticker_mapping.csv`, a GICS security master and SPY bars.
+
+One command turns them into a research panel:
+
+```powershell
+python -m factorlab build-data --raw data/raw --out data/processed
+```
+
+Output:
+
+```
+data/processed/
+  panel/
+    open.parquet high.parquet low.parquet close.parquet volume.parquet cap.parquet
+  meta/
+    security_master.csv          # permno / ticker / gvkey / GICS
+    universe_intervals.csv       # permno, start_date, end_date (point-in-time)
+    manifest.json                # shape, coverage, return distribution, default split
+```
+
+Each parquet is a **date x permno** matrix, float32 + zstd. Current scale:
+**6726 trading days (2000-01-03 → 2026-09-30) x 1195 permnos**, ~502 members per
+day, field coverage 42% (denominator: every stock that ever appears; numerator:
+actually a member on that date).
+
+**Cleaning rules** (`factorlab/data/us_equity.py`):
+
+| step | treatment |
+|---|---|
+| price basis | the vendor's `Adj_*` (split and dividend adjusted), no second adjustment |
+| universe | keep a stock only while `start_date <= t <= end_date`; delisted names disappear, **no survivorship bias** |
+| invalid values | `close/high/low/open <= 0`, `volume <= 0`, `cap <= 0` → NaN; there are no zero volumes left |
+| duplicates | drop duplicate `(permno, date)`, keep the last |
+| missing data | **no forward filling**; suspensions and pre-IPO dates stay NaN |
+| identifiers | columns are permnos (stable); tickers are reused (43 duplicates), mapping in `meta/security_master.csv` |
+| derived fields | `returns`, `log_returns`, `amount = close*volume`, `adv20`, `cap_rank` on demand in `PanelStore` |
+
+Health check (full numbers in `manifest.json`): 498–508 members per day; daily
+return mean 0.048%, std 2.4%; 90 observations with `|ret| > 50%` (0.003% of
+3.4M), concentrated in the 2008 crisis and a few M&A / squeeze days. They are
+kept — truncation is a backtest convention, not something to hide in the data
+layer.
+
+#### 3.2 Reading it
+
+```python
+from factorlab.data import load_processed
+
+panel = load_processed("data/processed/panel")   # PanelStore
+panel.field("close")                             # DataFrame(date x permno)
+panel.field("returns")                           # derived
+panel.summary()
+panel.meta["default_split"]                      # the split convention shipped with the data
+```
+
+Generic formats (long table / wide files / per-year files) still go through
+`load_panel()`:
+
+```python
+from factorlab.data import load_panel
+panel = load_panel("data/other")     # date+ticker long table, or one file per field
+```
+
+`y` (the prediction target) defaults to `close_to_close`, i.e.
+`close_t / close_{t-1} - 1`; `BacktestSettings(y=...)` accepts any price field
+(pct_change is applied).
+
+#### 3.3 Sample split (already configured)
+
+The data carries a `default_split`, which `MiningLoop` picks up automatically:
+
+| segment | range | role |
+|---|---|---|
+| in-sample `is` | 2000-01-03 → 2020-12-31 (5284 days) | **only** segment used to select configs |
+| out-of-sample `oos` | 2021-01-04 → 2024-12-31 (1005 days) | validation, not used for selection |
+| holdout | 2025-01-02 → 2026-09-30 (437 days) | final untouched sample |
+
+Override explicitly:
+`--train-end 2020-12-31 --oos-start 2021-01-01 --oos-end 2024-12-31 --holdout-start 2025-01-01`.
+
+### 4. The expression language
+
+#### 4.1 Syntax
+
+- arithmetic: `+ - * / ^`, unary `-`, comparisons `> < >= <= == !=`, logic `& | !`
+- constants: `nan`, `inf`, `true`, `false`
+- function calls: `rank(x)`, `ts_mean(x, 20)`, `if_else(cond, a, b)`
+
+Examples:
+
+```text
+-ts_mean(returns, 5)
+-rank(ts_std_dev(returns, 20))
+ts_returns(close, 20) / ts_std_dev(returns, 60)
+if_else(rank(cap) > 0.3, -ts_mean(returns, 20), nan)
+-ts_rank(ts_returns(close, 5), 20) * ts_rank(volume / ts_mean(volume, 20), 20)
+```
+
+#### 4.2 Approved operators (the only ones Agent 2.2 may use)
+
+The 35 time-series operators follow `ts_operators.md`:
+
+| family | operators |
+|---|---|
+| position / extremes | `ts_arg_max ts_arg_min ts_max ts_min ts_max_diff ts_min_diff ts_min_max_diff ts_range ts_extreme_ratio ts_max_drawdown` |
+| centre / dispersion | `ts_mean ts_median ts_std_dev ts_mad ts_zscore ts_ir ts_ema` |
+| change / return | `ts_delta ts_returns ts_sum ts_product ts_av_diff ts_decay_linear` |
+| rank / distribution | `ts_rank ts_percentage ts_quantile ts_scale ts_count_nans ts_positive_ratio ts_entropy ts_hhi` |
+| shape | `ts_bollinger_percent ts_bollinger_position ts_bollinger_width ts_gain_loss_ratio` |
+
+Non-time-series operators (all approved):
+
+| family | operators |
+|---|---|
+| element-wise | `abs sign log log1p sqrt exp signed_power clip nan_to_num max min` |
+| cross-sectional | `rank zscore demean scale winsorize` |
+| conditional | `if_else mask` |
+
+The validator (`factorlab/expr/validate.py`) rejects anything else and suggests a
+replacement, e.g. `ts_std` → `use ts_std_dev`, `delay` → `use ts_delta / ts_returns`.
+The whitelist lives in `factorlab/expr/approved.py`; adding an operator is two
+steps (register it in `ops.py`, append it to `TS_OPERATORS`). Passing
+`strict_operators=False` relaxes the rule for one call.
+
+`rank` is cross-sectional per day; `ts_*` roll per stock. Except for `ts_delta`
+(a lag, 1 is allowed), window arguments follow 4.3.
+
+#### 4.3 Window rule
+
+Only `5 / 20 / 60 / 120 / 240` days (`config.ALLOWED_WINDOWS`). Any other window
+fails validation, and the grid only substitutes within this set. Script factors
+get a warning (non-window parameters are allowed in `param_grid`).
+
+#### 4.4 Per-day python scripts
+
+When a factor needs cross-sectional iteration that the expression language cannot
+express, Agent 2.2 may submit a script:
+
+```python
+def generate(panel, params):
+    window = int(params.get("window", 5))
+    r = panel.field("returns")
+    rel = panel.field("volume") / panel.field("volume").rolling(20).mean()
+    num = (r * rel).rolling(window, min_periods=max(2, window // 2)).sum()
+    den = rel.rolling(window, min_periods=max(2, window // 2)).sum()
+    return -(num / den)
+```
+
+Contract:
+
+- must define `generate(panel, params)` (or `generate(panel)`) returning a
+  date x ticker DataFrame;
+- the namespace holds only `pd`, `np`, `math`, `PARAMS` and a few safe builtins;
+  **no imports, file or network access, no dunder access**;
+- tunable windows go in `param_grid`, e.g. `{"window": [5, 20, 60]}`, and the grid
+  iterates over them;
+- the output is aligned to the panel dates/tickers; non-numeric or non-DataFrame
+  outputs are rejected.
+
+> This is a guard-rail, not a sandbox: it stops the usual LLM overreach but not a
+> determined attacker. Run untrusted code in a container.
+
+### 5. Backtest and grid search
+
+#### 5.1 Conventions
+
+```
+raw factor
+  → cap filter      if_else(rank(cap) > 0.3, f, nan)     # drop the smallest 30%
+  → cross-section   none / rank / sign / zscore
+  → time decay      linear, most recent day weighted most
+  → demean          w = f - mean(f)                      # dollar neutral
+  → normalise       w = w / sum(|w|)                     # 1x gross
+  → pnl             pnl_t = Σ w_{t-1,i} · r_{t,i}        # delay=1, no look-ahead
+```
+
+- one-way turnover = `0.5 * Σ|w_t - w_{t-1}|`, annualised by 252;
+- cost = `cost_bps/1e4 * Σ|Δw|` (0 by default);
+- metrics: `sharpe ann_return ann_vol total_return max_drawdown turnover hit_rate ic ic_ir fitness n_names`,
+  plus **per-year** return / sharpe / turnover / maxdd / IC;
+- `fitness = sharpe * sqrt(|ann_return| / max(turnover, 0.125))` (BRAIN convention).
+
+#### 5.2 Grid space
+
+| dimension | values |
+|---|---|
+| decay | `0, 5, 20, 60` (0 = no decay) |
+| cross-section | `none, rank, sign` (`zscore` optional) |
+| cap filter | `none`, or drop the smallest 30% (`cap_filter=0.3`) |
+| expression windows | every window slot re-drawn from `5, 20, 60, 120, 240` |
+| script parameters | declared by `param_grid` |
+
+`max_evals=200` by default. When there are too many window combinations the
+search first does a "base + single-window coordinate sweep" and then fills the
+budget at random; every configuration is a full backtest, ranked by `sharpe`
+(ties broken by lower turnover). IC is recomputed only for the top configurations.
+
+#### 5.3 In-sample / out-of-sample / holdout
+
+Three segments, all **inclusive date ranges**:
+
+| segment | key | range | role |
+|---|---|---|---|
+| in-sample | `is` | 2000-01-03 → 2020-12-31 | **only** segment used for selection |
+| out-of-sample | `oos` | 2021-01-04 → 2024-12-31 | validation |
+| holdout | `holdout` | 2025-01-02 → 2026-09-30 | final untouched sample |
+
+The dates live in `data/processed/meta/manifest.json::default_split` and are read
+by `MiningLoop`; they can also be passed explicitly:
+
+```python
+from factorlab.config import SampleSplit
+
+SampleSplit(
+    train_end="2020-12-31",
+    test_start="2021-01-01", test_end="2024-12-31",
+    holdout_start="2025-01-01",
+)
+# or fractionally: SampleSplit(train_frac=0.8, holdout_start="2025-01-01")
+```
+
+```powershell
+python -m factorlab run --data data/processed/panel --hypotheses 5 `
+  --train-end 2020-12-31 --oos-start 2021-01-01 --oos-end 2024-12-31 --holdout-start 2025-01-01
+```
+
+Protocol (`factorlab/backtest/split.py`):
+
+1. the factor matrix is always computed on the **full** panel; factors are causal
+   (row t uses data up to t), so neither OOS nor holdout can leak future data;
+2. windows / decay / rank / sign / cap filter are scored **in-sample only**;
+3. the selected configuration is re-run unchanged on the other two segments, and
+   all three sets of metrics are stored and reported;
+4. the split is applied to the **pnl series**, not by recomputing a sub-panel, so
+   there is no rolling warm-up loss and the first OOS day's turnover reflects the
+   real position change;
+5. without a split, selection falls back to the full sample and the extra segments
+   stay empty — nothing is fabricated.
+
+Where it is stored:
+
+- grid table: `sharpe_is` / `sharpe_oos` / `sharpe_holdout` (plus `ann_return_*`,
+  `turnover_*`, `max_drawdown_*`, `ic_*`)
+- pool: `segments.is` / `segments.oos` / `segments.holdout` in `meta.json`;
+  `pool summary` gains the matching columns
+- report: `sharpe IS` / `sharpe OOS` / `sharpe Holdout` columns, per-factor metrics
+  for all three segments and per-segment yearly tables
+
+Agent 3 judges on **in-sample** and uses the other two as an overfitting check: if
+either segment is negative, or the average gives back more than 60% of the
+in-sample edge, the factor is abandoned. The LLM prompt says the same.
+
+### 6. The three agents (2.1 / 2.2 / 3)
+
+| agent | class | input | output |
+|---|---|---|---|
+| **2.1 economist** | `HypothesisAgent` | data profile (coverage / distribution / autocorrelation), existing pool, previously tried names | hypotheses: mechanism, direction, horizon, falsifiable prediction, natural-language recipe |
+| **2.2 implementer** | `ImplementationAgent` | the 2.1 hypothesis + field table + operator catalog + window rule | `FactorSpec`: expression or script + explanation; retried with validator errors |
+| **3 research director** | `CriticAgent` | hypothesis + implementation + grid summary + yearly stats + attempt history | `accept / optimize / abandon` + diagnosis + at most one structural change |
+
+**Boundary between 2.1 and 2.2**: 2.1 produces the economic story and the natural
+language recipe and **writes no code**; 2.2 owns every implementation decision
+(expression vs script, which fields / operators / windows). The split lets either
+side be replaced or retried independently: changing the economist does not touch
+the execution layer, and changing the execution layer (e.g. a future WorldQuant
+BRAIN dialect) does not touch the research logic. The JSON schema is in
+`docs/agent_contracts.md`.
+
+Agent 3 may only change the **factor's structure** — decay / rank / sign / cap
+filter have already been searched by the grid. `optimize` sends the new spec back
+to Agent 2.2 and re-runs, up to `max_rounds` times.
+
+#### 6.1 Connecting an LLM
+
+```powershell
+$env:DEEPSEEK_API_KEY="sk-..."                 # or OPENAI_API_KEY / ANTHROPIC_API_KEY
+$env:FACTORLAB_LLM_PROVIDER="openai"           # openai | anthropic | offline | auto
+$env:FACTORLAB_LLM_BASE_URL="https://api.deepseek.com/v1"
+$env:FACTORLAB_LLM_MODEL="deepseek-chat"
+python -m factorlab run --hypotheses 5 --rounds 2
+```
+
+With `provider=auto` the provider follows the available key; with no key the
+rule-based library is used. Interfaces, validation and logging are identical, so
+the offline run and the LLM run are the same pipeline.
+
+#### 6.2 The offline library
+
+`agents/fallback.py` holds eight hand-written hypotheses (short-term reversal,
+low volatility, Amihud illiquidity, volume shock, volume-weighted reversal as a
+script, overnight gap, range compression, price/volume divergence) with
+implementation templates and review thresholds. It exists so the pipeline can be
+tested and demonstrated without a key — not as a stub.
+
+### 7. The factor pool
+
+```
+pool/
+  index.json                     # every record (spec / hypothesis / metrics / yearly / config / corr)
+  correlations.csv               # pairwise correlations
+  factors/<name>-<fingerprint>/
+      meta.json                  # full record
+      factor.parquet             # factor matrix under the best config (float32)
+      pnl.parquet                # daily pnl + turnover
+      grid.parquet               # grid detail (first 100 rows)
+```
+
+Factor id = `name-slug + first 8 hex of the spec sha1`; re-adding the same spec is
+idempotent.
+
+**Both correlations are computed and stored, with no threshold**:
+
+- cross-sectional: mean daily Spearman between the two factor matrices
+  (`xs_spearman_mean`, plus std and day count);
+- time series: Pearson of the two daily pnl series (`pnl_pearson`, on common dates).
+
+Adding a factor compares it with every factor in the pool and writes the result
+**both ways** (each side's meta gets `max_abs_xs_corr` / `max_abs_pnl_corr`);
+`pool.recompute_correlations()` refreshes everything. Whether to reject on high
+correlation is left to a later policy or a human.
+
+```python
+from factorlab.pool import FactorPool
+pool = FactorPool("pool")
+pool.summary()                     # DataFrame: id/name/sharpe/turnover/IC/max_corr...
+pool.load_factor(fid)              # factor matrix
+pool.load_pnl(fid)                 # daily pnl
+pool.correlations()                # pairwise
+pool.report()                      # markdown
+```
+
+Example (synthetic data, eight offline hypotheses, five accepted):
+
+| relation | factor A | factor B | xs spearman | pnl pearson |
+|---|---|---|---|---|
+| same signal | short_term_reversal | volume_weighted_reversal | 0.913 | 0.921 |
+| same signal | low_volatility_anomaly | range_compression_breakout | 0.756 | 0.754 |
+| independent | short_term_reversal | range_compression_breakout | -0.020 | 0.010 |
+
+The last row is the point: `range_compression` sounds like a new story but is
+mostly the low-volatility factor, while the script-implemented volume-weighted
+reversal is the same signal as plain reversal.
+
+### 8. Known limitations / next steps
+
+1. **Only price/volume**: no sector, size neutralisation or fundamentals;
+   `group_*` operators and industry neutralisation are the obvious extensions.
+2. **Costs**: 0 by default, `cost_bps` can be set; the grid does not run a cost
+   sensitivity analysis.
+3. **Statistics**: a single OOS split is supported (5.3) but there is no
+   walk-forward validation and no multiple-testing correction (Deflated Sharpe /
+   White's Reality Check); searching 200 configurations inflates the best Sharpe,
+   so a selection-bias penalty is still missing.
+4. **Script sandbox**: static checks plus restricted builtins, not isolation — use
+   a container for untrusted code.
+5. **Concurrency**: the grid is serial; a single factor with 200 backtests takes
+   seconds on the real panel, but a larger library wants parallelism and caching.
+6. **Agent memory**: only the pool and the hypotheses tried in this run are fed to
+   Agent 2.1; failures across runs are not persisted.
+
+---
+
+<a id="chinese"></a>
+
+## 中文
 
 从「若干年的量价数据」出发，自动完成：
 
@@ -25,9 +513,7 @@ Agent 3 评审：接受 / 优化 / 放弃（结合假设合理性）
 样本切分为 2000-2020（选择）/ 2021-2024（样本外）/ 2025+（真正样本外）。
 没有 LLM key 时会自动退回规则版 agent，流程与接 LLM 后完全一致。
 
----
-
-## 1. 快速开始
+### 1. 快速开始
 
 ```powershell
 # 0) 真实数据：原始 CSV -> 清洗后的面板（约 20 秒，输出 data/processed/）
@@ -60,15 +546,13 @@ pool/                        # 因子池（见第 7 节）
 
 ```powershell
 python -m factorlab expr --expression="-rank(ts_mean(returns,5))" --transform none
-python -m factorlab expr --expression="ts_std(returns,20)" --grid     # 走完整网格
+python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # 走完整网格
 ```
 
 > PowerShell 里以 `-` 开头的表达式要用 `--expression="..."` 的等号写法，否则会被当成参数名。
 > 测试：`python -m unittest discover -s tests`（57 个用例）。
 
----
-
-## 2. 目录结构
+### 2. 目录结构
 
 ```
 factorlab/
@@ -107,11 +591,9 @@ docs/
   operators.md         # 白名单算子的签名与定义
 ```
 
----
+### 3. 数据模块
 
-## 3. 数据模块
-
-### 3.1 真实数据（CRSP 风格美股）
+#### 3.1 真实数据（CRSP 风格美股）
 
 原始数据在 `data/raw/`：1200 个 CSV，逐票 `s<permno>.csv`（`Adj_Open/High/Low/Close/Volume/MktCap`），
 外加 `MASTER_UNIVERSE_sp500_membership_extended_asOf20260930_v2.csv`（成分股进出区间）、
@@ -155,7 +637,7 @@ data/processed/
 `|ret| > 50%` 的样本 90 个（占 3.4M 的 0.003%），集中在 2008 年金融危机与个别并购/逼空日，
 保留了未删除——是否要截尾应该在回测口径里决定，而不是在数据层偷偷改。
 
-### 3.2 读取
+#### 3.2 读取
 
 ```python
 from factorlab.data import load_processed
@@ -177,7 +659,7 @@ panel = load_panel("data/other")     # date+ticker 长表，或一个字段一�
 `y`（预测目标）默认 `close_to_close`，即 `close_t / close_{t-1} - 1`；
 在 `BacktestSettings(y=...)` 里可以换成任意价格字段（会取 pct_change）。
 
-### 3.3 样本切分（已按约定设好）
+#### 3.3 样本切分（已按约定设好）
 
 数据自带 `default_split`，`MiningLoop` 会自动使用：
 
@@ -189,11 +671,9 @@ panel = load_panel("data/other")     # date+ticker 长表，或一个字段一�
 
 想显式覆盖：`--train-end 2020-12-31 --oos-start 2021-01-01 --oos-end 2024-12-31 --holdout-start 2025-01-01`。
 
----
+### 4. 因子表达式语言
 
-## 4. 因子表达式语言
-
-### 4.1 语法
+#### 4.1 语法
 
 - 算术：`+ - * / ^`，一元 `-`，比较 `> < >= <= == !=`，逻辑 `& | !`（也可写 `&& ||`）
 - 常量：`nan`、`inf`、`true`、`false`
@@ -209,7 +689,7 @@ if_else(rank(cap) > 0.3, -ts_mean(returns, 20), nan)
 -ts_rank(ts_returns(close, 5), 20) * ts_rank(volume / ts_mean(volume, 20), 20)
 ```
 
-### 4.2 算子白名单（Agent 2.2 只能使用这些）
+#### 4.2 算子白名单（Agent 2.2 只能使用这些）
 
 时序算子以 `ts_operators.md` 为准，共 35 个：
 
@@ -236,13 +716,13 @@ if_else(rank(cap) > 0.3, -ts_mean(returns, 20), nan)
 
 `rank` 是按日截面排名，`ts_*` 是逐股票滚动。除 `ts_delta`（lag，可为 1）外，窗口参数受 4.3 约束。
 
-### 4.3 时间窗口规则
+#### 4.3 时间窗口规则
 
 只允许 `5 / 20 / 60 / 120 / 240` 天（`config.ALLOWED_WINDOWS`）。
 表达式中出现其他窗口会在校验阶段直接报错，网格搜索也只会在这几个值里替换。
 脚本因子的 `param_grid` 若不是这几个值，会给 warning（允许非窗口参数）。
 
-### 4.4 逐日 python 脚本因子
+#### 4.4 逐日 python 脚本因子
 
 当因子需要表达式表达不了的截面迭代逻辑时，Agent 2.2 可以交脚本：
 
@@ -265,11 +745,9 @@ def generate(panel, params):
 
 > 这是「护栏」不是「沙箱」：能防住 LLM 的常见越界，但挡不住蓄意攻击。真要跑不可信代码，请把整个进程放进容器。
 
----
+### 5. 回测与网格搜索
 
-## 5. 回测与网格搜索
-
-### 5.1 口径
+#### 5.1 口径
 
 ```
 原始因子
@@ -286,7 +764,7 @@ def generate(panel, params):
 - 指标：`sharpe ann_return ann_vol total_return max_drawdown turnover hit_rate ic ic_ir fitness n_names`，另加**分年**的 return / sharpe / turnover / maxdd / IC；
 - `fitness = sharpe * sqrt(|ann_return| / max(turnover, 0.125))`（BRAIN 口径，便于横向比较）。
 
-### 5.2 网格空间
+#### 5.2 网格空间
 
 | 维度 | 取值 |
 |---|---|
@@ -299,7 +777,7 @@ def generate(panel, params):
 默认 `max_evals=200`：窗口组合过多时先做「基准 + 单窗口坐标扫描」，再随机补足；
 每个配置都完整回测，按 `sharpe` 排序（同分看 turnover）。IC 只在排名靠前的配置上重算，用于提速。
 
-### 5.3 样本内 / 样本外 / 真正样本外
+#### 5.3 样本内 / 样本外 / 真正样本外
 
 三段切分，全部是**日期闭区间**：
 
@@ -347,10 +825,7 @@ python -m factorlab run --data data/processed/panel --hypotheses 5 `
 Agent 3 以**样本内**做判断，用另外两段做过拟合检查：两段中任意一段为负、或平均回吐超过样本内优势的 60%，
 直接判过拟合并放弃。LLM 的 prompt 同样写明「holdout 是最后一关，样本内好看但样本外塌掉的必须放弃」。
 
-
----
-
-## 6. 三个 Agent（2.1 / 2.2 / 3）
+### 6. 三个 Agent（2.1 / 2.2 / 3）
 
 | Agent | 类 | 输入 | 输出 |
 |---|---|---|---|
@@ -367,7 +842,7 @@ Agent 3 以**样本内**做判断，用另外两段做过拟合检查：两段�
 Agent 3 的修改只作用于**表达式结构**——decay / rank / sign / 市值过滤已经由网格搜索过了，不重复建议。
 `optimize` 会带着新 spec 回到 Agent 2.2 → 重新回测，最多 `max_rounds` 轮。
 
-### 6.1 接 LLM
+#### 6.1 接 LLM
 
 ```powershell
 $env:DEEPSEEK_API_KEY="sk-..."                 # 或 OPENAI_API_KEY / ANTHROPIC_API_KEY
@@ -380,15 +855,13 @@ python -m factorlab run --hypotheses 5 --rounds 2
 `provider=auto` 时会按 key 自动选择；没有任何 key 时自动退回离线规则库，
 三个 agent 的接口、校验、日志完全一致，所以离线跑出来的流程和接 LLM 后是同一条。
 
-### 6.2 离线规则库
+#### 6.2 离线规则库
 
 `agents/fallback.py` 里是 8 条手写的经济学假设（短期反转、低波动、Amihud 非流动性、成交量冲击、
 成交量加权反转（脚本）、隔夜跳空、区间压缩、量价背离），配套实现模板和评审阈值。
 它的作用是让整条流水线在没有 key 时可测试、可演示——不是给 LLM 擦屁股的假实现。
 
----
-
-## 7. 因子池
+### 7. 因子池
 
 ```
 pool/
@@ -432,17 +905,13 @@ pool.report()                      # markdown
 最后一行正是因子池的价值：`range_compression` 名字听起来是「区间压缩」，实际和低波动因子高度重合；
 而「成交量加权反转」虽然实现方式（脚本）完全不同，和普通反转其实是同一个信号。
 
----
+### 8. 已知限制 / 下一步
 
-## 8. 已知限制 / 下一步
-
-1. **真实数据**：`loader` 已支持长表/宽表/按年分文件，但字段映射和 `y` 还需要按真实数据确认；
-   拿到数据后建议先跑 `panel.summary()` 看覆盖率和极值。
-2. **只有量价**：没有行业、市值中性化、财务因子；`group_*` 类算子和行业中性化是明确的扩展点。
-3. **成本**：默认 0，`cost_bps` 可开；网格目前不对成本做敏感性分析。
-4. **统计**：单次样本外切分已支持（见 5.3），但还没有 walk-forward 滚动验证，
+1. **只有量价**：没有行业、市值中性化、财务因子；`group_*` 类算子和行业中性化是明确的扩展点。
+2. **成本**：默认 0，`cost_bps` 可开；网格目前不对成本做敏感性分析。
+3. **统计**：单次样本外切分已支持（见 5.3），但还没有 walk-forward 滚动验证，
    也没有多重检验校正（Deflated Sharpe / White's Reality Check）；
    网格 200 次搜索本身就会抬高最优 Sharpe，后续应加入选择偏差惩罚。
-5. **脚本沙箱**：静态检查 + 受限 builtins，非强隔离，生产环境请用容器。
-6. **并发**：网格是串行的；单因子 200 次回测在 300x1800 面板上约 20 秒，因子多了可以并行/缓存。
-7. **Agent 记忆**：目前只把「已入库因子 + 本次已试假设」喂给 Agent 2.1，跨 run 的失败经验还没有持久化。
+4. **脚本沙箱**：静态检查 + 受限 builtins，非强隔离，生产环境请用容器。
+5. **并发**：网格是串行的；单因子 200 次回测在真实面板上约 2 分钟，因子多了可以并行/缓存。
+6. **Agent 记忆**：目前只把「已入库因子 + 本次已试假设」喂给 Agent 2.1，跨 run 的失败经验还没有持久化。
