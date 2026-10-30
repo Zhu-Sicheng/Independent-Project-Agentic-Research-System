@@ -67,7 +67,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # full
 
 > In PowerShell an expression starting with `-` needs the `--expression="..."` form,
 > otherwise it is parsed as a flag.
-> Tests: `python -m unittest discover -s tests` (68 cases).
+> Tests: `python -m unittest discover -s tests` (73 cases).
 
 ### 2. Layout
 
@@ -168,6 +168,26 @@ panel.field("returns")                           # derived
 panel.summary()
 panel.meta["default_split"]                      # the split convention shipped with the data
 ```
+
+Available fields (15; agents may use any of them in an expression):
+
+| field | definition | |
+|---|---|---|
+| `open high low close` | vendor adjusted prices | stored |
+| `volume` | shares traded | stored |
+| `cap` | market cap, **thousands of USD** (CRSP convention) | stored |
+| `returns` | `close_t / close_{t-1} - 1` | derived |
+| `log_returns` | `log(close)` diff | derived |
+| `amount` | `close * volume` (dollar volume) | derived |
+| `adv20` | 20-day average share volume | derived |
+| `cap_rank` | cross-sectional rank of `cap` (0-1) | derived |
+| `range` | `high - low` | derived |
+| `close_position` | `(close - low) / (high - low)` | derived |
+| `intraday_return` | `close / open - 1` | derived |
+| `overnight_return` | `open / close_{t-1} - 1` | derived |
+
+Derived fields are built on first use and cached; `cap` is rank-invariant so its
+unit does not affect the cap filter or `cap_rank`, only dollar-value arithmetic.
 
 Generic formats (long table / wide files / per-year files) still go through
 `load_panel()`:
@@ -546,7 +566,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # 走�
 ```
 
 > PowerShell 里以 `-` 开头的表达式要用 `--expression="..."` 的等号写法，否则会被当成参数名。
-> 测试：`python -m unittest discover -s tests`（68 个用例）。
+> 测试：`python -m unittest discover -s tests`（73 个用例）。
 
 ### 2. 目录结构
 
@@ -643,6 +663,25 @@ panel.field("returns")                           # 派生
 panel.summary()
 panel.meta["default_split"]                      # 数据自带的切分约定
 ```
+
+可用字段（15 个，agent 可以在表达式里直接用）：
+
+| 字段 | 定义 | 来源 |
+|---|---|---|
+| `open high low close` | 数据商复权价 | 存储 |
+| `volume` | 成交量（股） | 存储 |
+| `cap` | 市值，**千美元**（CRSP 口径） | 存储 |
+| `returns` | `close_t / close_{t-1} - 1` | 派生 |
+| `log_returns` | `log(close)` 差分 | 派生 |
+| `amount` | `close * volume`（成交额） | 派生 |
+| `adv20` | 20 日平均成交量（股） | 派生 |
+| `cap_rank` | 市值逐日截面排名（0-1） | 派生 |
+| `range` | `high - low` | 派生 |
+| `close_position` | `(close - low) / (high - low)` | 派生 |
+| `intraday_return` | `close / open - 1` | 派生 |
+| `overnight_return` | `open / close_{t-1} - 1` | 派生 |
+
+派生字段首次访问时计算并缓存；`cap` 的单位只影响金额类运算，不影响市值过滤与 `cap_rank`。
 
 通用格式（长表 / 宽表 / 按年分文件）仍然走 `load_panel()`：
 

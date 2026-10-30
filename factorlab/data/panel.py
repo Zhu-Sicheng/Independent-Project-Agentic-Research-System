@@ -19,6 +19,20 @@ class PanelError(ValueError):
     """Raised for malformed or inconsistent panel data."""
 
 
+#: derived fields and the stored fields they need (acyclic)
+DERIVED_DEPS: Dict[str, tuple] = {
+    "returns": ("close",),
+    "log_returns": ("close",),
+    "amount": ("close", "volume"),
+    "adv20": ("volume",),
+    "cap": ("close", "shares"),
+    "cap_rank": ("cap",),
+    "range": ("high", "low"),
+    "close_position": ("high", "low", "close"),
+    "intraday_return": ("open", "close"),
+    "overnight_return": ("open", "close"),
+}
+
 #: common aliases so that agents/LLMs can use natural names
 ALIASES: Dict[str, str] = {
     "ret": "returns",
@@ -123,7 +137,25 @@ class PanelStore:
         return name in self
 
     def available(self) -> List[str]:
-        return sorted(self.fields)
+        """Stored fields plus every derived field that can be built."""
+        names = set(self.fields) | set(self._cache)
+        names.update(name for name in DERIVED_DEPS if self._can_derive(name))
+        return sorted(names)
+
+    def _can_derive(self, name: str, _seen: Optional[set] = None) -> bool:
+        seen = _seen if _seen is not None else set()
+        if name in seen:
+            return False
+        seen.add(name)
+        deps = DERIVED_DEPS.get(name)
+        if deps is None:
+            return False
+        for dep in deps:
+            if dep in self.fields or dep in self._cache:
+                continue
+            if not self._can_derive(dep, seen):
+                return False
+        return True
 
     def field(self, name: str) -> pd.DataFrame:
         """Return a field matrix, building derived fields on demand."""
@@ -142,21 +174,29 @@ class PanelStore:
         return derived
 
     def _derive(self, key: str) -> Optional[pd.DataFrame]:
-        if key == "returns" and "close" in self.fields:
-            return self.fields["close"].pct_change(fill_method=None)
-        if key == "log_returns" and "close" in self.fields:
-            return np.log(self.fields["close"]).diff()
-        if key == "amount" and "close" in self.fields and "volume" in self.fields:
-            return self.fields["close"] * self.fields["volume"]
-        if key == "vwap" and "amount" in self.fields and "volume" in self.fields:
-            vol = self.fields["volume"].replace(0.0, np.nan)
-            return self.fields["amount"] / vol
-        if key == "adv20" and "amount" in self.fields:
-            return self.fields["amount"].rolling(20, min_periods=10).mean()
-        if key == "cap" and "close" in self.fields and "shares" in self.fields:
-            return self.fields["close"] * self.fields["shares"]
-        if key == "cap_rank" and "cap" in self.fields:
-            return self.fields["cap"].rank(axis=1, pct=True)
+        # dependency checks go through ``has`` so derived inputs (amount, cap,
+        # vwap) can themselves be derived instead of only read from storage
+        if key == "returns" and self.has("close"):
+            return self.field("close").pct_change(fill_method=None)
+        if key == "log_returns" and self.has("close"):
+            return np.log(self.field("close")).diff()
+        if key == "amount" and self.has("close") and self.has("volume"):
+            return self.field("close") * self.field("volume")
+        if key == "adv20" and self.has("volume"):
+            return self.field("volume").rolling(20, min_periods=10).mean()
+        if key == "cap" and self.has("close") and "shares" in self.fields:
+            return self.field("close") * self.fields["shares"]
+        if key == "cap_rank" and self.has("cap"):
+            return self.field("cap").rank(axis=1, pct=True)
+        if key == "range" and self.has("high") and self.has("low"):
+            return self.field("high") - self.field("low")
+        if key == "close_position" and self.has("close") and self.has("high") and self.has("low"):
+            rng = self.field("high") - self.field("low")
+            return (self.field("close") - self.field("low")) / rng.where(rng > 0)
+        if key == "intraday_return" and self.has("open") and self.has("close"):
+            return self.field("close") / self.field("open") - 1.0
+        if key == "overnight_return" and self.has("open") and self.has("close"):
+            return self.field("open") / self.field("close").shift(1) - 1.0
         return None
 
     # ------------------------------------------------------------------ #
