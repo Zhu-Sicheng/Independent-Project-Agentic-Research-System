@@ -19,6 +19,31 @@ DEFAULT_DATA_DIR = PROJECT_ROOT / "data" / "sample"
 DEFAULT_POOL_DIR = PROJECT_ROOT / "pool"
 DEFAULT_RUNS_DIR = PROJECT_ROOT / "runs"
 
+#: local-only credentials file (see .env.example); never committed
+ENV_FILE = PROJECT_ROOT / ".env"
+
+
+def load_dotenv(path: Path = ENV_FILE) -> None:
+    """Minimal ``.env`` loader: ``KEY=VALUE`` lines, no export, no interpolation.
+
+    Existing environment variables win, so an explicit ``$env:FOO`` in the shell
+    still overrides the file.  The file itself is gitignored and must never be
+    committed (a repository-hygiene test enforces that).
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+
 # --------------------------------------------------------------------------- #
 # research priors
 # --------------------------------------------------------------------------- #
@@ -114,6 +139,7 @@ class LLMSettings:
 
     @classmethod
     def from_env(cls) -> "LLMSettings":
+        load_dotenv()
         provider = os.getenv("FACTORLAB_LLM_PROVIDER", "auto").lower()
         if provider == "auto":
             if os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY"):
@@ -148,6 +174,9 @@ class LLMSettings:
             temperature=float(os.getenv("FACTORLAB_LLM_TEMPERATURE", "0.7")),
             max_tokens=int(os.getenv("FACTORLAB_LLM_MAX_TOKENS", "4000")),
         )
+
+    def api_key(self) -> str:
+        return os.getenv(self.api_key_env, "") if self.api_key_env else ""
 
     def available(self) -> bool:
         return bool(self.provider != "offline" and self.api_key())

@@ -14,6 +14,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Guard against committed secrets
+        run: |
+          if git ls-files | grep -qE '^\.env($|\.)' ; then
+            echo "::error::.env must never be committed"; exit 1
+          fi
+          if git grep -nE 'sk-[0-9a-f]{32}' -- . ; then
+            echo "::error::an API key appears to be committed"; exit 1
+          fi
+          echo "no secrets found"
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}

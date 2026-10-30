@@ -31,12 +31,14 @@ Thumbs.db
 data-*.zip
 data/raw/
 
-
+# logs
 *.log
+
+# local secrets: API keys live in .env only, never in git
+.env
+.env.*
+!.env.example
 
 # deploy key for this machine (never commit)
 .deploy_key*
-
-
 .ssh_home/
-

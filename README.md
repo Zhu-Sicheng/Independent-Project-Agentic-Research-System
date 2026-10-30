@@ -408,6 +408,16 @@ With `provider=auto` the provider follows the available key; with no key the
 rule-based library is used. Interfaces, validation and logging are identical, so
 the offline run and the LLM run are the same pipeline.
 
+Keys can also live in a local `.env` (gitignored, see `.env.example`); it is read
+automatically and exported variables take precedence:
+
+```
+DEEPSEEK_API_KEY=sk-...
+FACTORLAB_LLM_PROVIDER=openai
+FACTORLAB_LLM_BASE_URL=https://api.deepseek.com/v1
+FACTORLAB_LLM_MODEL=deepseek-chat
+```
+
 #### 6.2 The offline library
 
 `agents/fallback.py` holds eight hand-written hypotheses (short-term reversal,
@@ -854,6 +864,16 @@ python -m factorlab run --hypotheses 5 --rounds 2
 
 `provider=auto` 时会按 key 自动选择；没有任何 key 时自动退回离线规则库，
 三个 agent 的接口、校验、日志完全一致，所以离线跑出来的流程和接 LLM 后是同一条。
+
+key 也可以放在本地 `.env`（已 gitignore，格式见 `.env.example`），程序会自动读取，
+环境变量优先级更高：
+
+```
+DEEPSEEK_API_KEY=sk-...
+FACTORLAB_LLM_PROVIDER=openai
+FACTORLAB_LLM_BASE_URL=https://api.deepseek.com/v1
+FACTORLAB_LLM_MODEL=deepseek-chat
+```
 
 #### 6.2 离线规则库
 
