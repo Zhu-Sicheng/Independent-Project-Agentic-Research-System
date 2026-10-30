@@ -95,10 +95,18 @@ class FactorSpec:
         return P.collect_windows(P.parse(self.expression))
 
     # ------------------------------------------------------------------ #
-    def validate(self, panel: Optional[PanelStore] = None, strict_windows: bool = True) -> ValidationReport:
+    def validate(
+        self,
+        panel: Optional[PanelStore] = None,
+        strict_windows: bool = True,
+        strict_operators: bool = True,
+    ) -> ValidationReport:
         if self.kind == "expression":
             return validate_expression(
-                self.expression, panel=panel, strict_windows=strict_windows
+                self.expression,
+                panel=panel,
+                strict_windows=strict_windows,
+                approved_only=strict_operators,
             )
         report = ValidationReport(text=self.script)
         errors = validate_script(self.script)

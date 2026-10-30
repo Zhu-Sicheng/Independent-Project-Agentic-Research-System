@@ -48,7 +48,7 @@ the description cannot be implemented, it is 2.2's (or 3's) problem.
 ## Agent 2.2 — implementation
 
 **In**: one hypothesis object, the field catalog, the operator catalog
-(generated from the registry), the allowed window set, and — on a retry — the
+(the approved set, see docs/operators.md), the allowed window set, and — on a retry — the
 validator errors plus the rejected spec.
 
 **Out**: a `FactorSpec`, i.e. one of

@@ -60,7 +60,7 @@ HYPOTHESES: list[dict] = [
         "expected_sign": "positive",
         "testable_prediction": "Positive IC, low turnover, better Sharpe than reversal.",
         "novelty": "Classic low-vol premium, orthogonal to short-term reversal.",
-        "template_expression": "-ts_std(returns, 20)",
+        "template_expression": "-ts_std_dev(returns, 20)",
     },
     {
         "name": "amihud_illiquidity_premium",
@@ -150,13 +150,16 @@ HYPOTHESES: list[dict] = [
             "Stocks that gap up at the open underperform during the rest of the "
             "day, and vice versa."
         ),
-        "factor_description": "Negative overnight gap: -(open / delay(close, 1) - 1).",
+        "factor_description": (
+            "Negative overnight gap, using the previous close reconstructed from "
+            "ts_delta: -(open / (close - ts_delta(close, 1)) - 1)."
+        ),
         "data_fields": ["open", "close"],
         "horizon_days": 1,
         "expected_sign": "positive",
         "testable_prediction": "Positive IC at a one-day horizon; very high turnover.",
         "novelty": "Intraday/overnight split, new information for the pool.",
-        "template_expression": "-(open / delay(close, 1) - 1)",
+        "template_expression": "-(open / (close - ts_delta(close, 1)) - 1)",
     },
     {
         "name": "range_compression_breakout",
@@ -190,13 +193,16 @@ HYPOTHESES: list[dict] = [
             "Stocks with a high 20-day correlation between price and volume "
             "underperform stocks with a low correlation."
         ),
-        "factor_description": "Negative 20-day correlation of close and volume.",
+        "factor_description": (
+            "Price-volume divergence proxied without ts_corr: the 20-day rank of "
+            "the 5-day return times the 20-day rank of relative volume, negated."
+        ),
         "data_fields": ["close", "volume"],
         "horizon_days": 20,
         "expected_sign": "positive",
         "testable_prediction": "Positive IC and low turnover.",
         "novelty": "Second-moment (co-movement) signal rather than a level.",
-        "template_expression": "-ts_corr(close, volume, 20)",
+        "template_expression": "-ts_rank(ts_returns(close, 5), 20) * ts_rank(volume / ts_mean(volume, 20), 20)",
     },
 ]
 
@@ -227,12 +233,15 @@ def offline_hypotheses(n: int = 3, exclude: Optional[list[str]] = None) -> list[
 KEYWORDS: list[tuple[tuple[str, ...], str]] = [
     (("reversal", "revert", "overreact"), "-ts_mean(returns, 5)"),
     (("momentum", "trend", "continuation"), "ts_returns(close, 20)"),
-    (("volatil", "vol", "risk"), "-ts_std(returns, 20)"),
+    (("volatil", "vol", "risk"), "-ts_std_dev(returns, 20)"),
     (("illiq", "liquidity", "amihud", "impact"), "-ts_mean(abs(returns) / amount, 20)"),
     (("volume", "turnover", "shock"), "-ts_mean(volume / ts_mean(volume, 20) - 1, 5)"),
-    (("gap", "overnight", "open"), "-(open / delay(close, 1) - 1)"),
+    (("gap", "overnight", "open"), "-(open / (close - ts_delta(close, 1)) - 1)"),
     (("range", "high", "low", "breakout"), "-ts_mean((high - low) / close, 20)"),
-    (("corr", "divergence", "co-movement"), "-ts_corr(close, volume, 20)"),
+    (
+        ("corr", "divergence", "co-movement"),
+        "-ts_rank(ts_returns(close, 5), 20) * ts_rank(volume / ts_mean(volume, 20), 20)",
+    ),
     (("size", "cap", "small"), "-rank(cap)"),
 ]
 

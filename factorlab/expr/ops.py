@@ -435,6 +435,378 @@ register("if_else", "conditional", [Arg("cond"), Arg("a"), Arg("b")], "cond ? a 
 register("mask", "conditional", [X, Arg("cond")], "x where cond else nan", 2, 2)(_mask)
 
 
+# --------------------------------------------------------------------------- #
+# approved time-series operators (spec: docs/operators.md)
+# --------------------------------------------------------------------------- #
+#: window reductions are evaluated in column blocks to bound peak memory on a
+#: 6700 x 1200 panel; ~100 MB per temporary
+_WINDOW_BUDGET = 100e6
+
+
+def _window_reduce(x, d, fn, min_periods=1):
+    """Apply ``fn(window_matrix) -> (T-d+1, b)`` along the time axis."""
+    from numpy.lib.stride_tricks import sliding_window_view
+
+    arr = x.to_numpy(dtype="float64")
+    T, N = arr.shape
+    d = int(d)
+    out = np.full((T, N), np.nan)
+    if d > T or N == 0:
+        return pd.DataFrame(out, index=x.index, columns=x.columns)
+    m = max(1, int(min_periods))
+    span = max(1, T - d + 1)
+    block = max(1, min(N, int(_WINDOW_BUDGET / (8.0 * d * span))))
+    for j0 in range(0, N, block):
+        chunk = arr[:, j0 : j0 + block]
+        W = sliding_window_view(chunk, d, axis=0)
+        valid = np.isfinite(W).sum(axis=2)
+        with np.errstate(all="ignore"):
+            res = fn(W)
+        res = np.where(valid >= m, res, np.nan)
+        out[d - 1 :, j0 : j0 + block] = res
+    return pd.DataFrame(out, index=x.index, columns=x.columns)
+
+
+def _ts_std_dev(x, d):
+    if not _is_df(x):
+        return x
+    return x.rolling(int(d), min_periods=2).std(ddof=0)
+
+
+def _ts_ema(x, d):
+    if not _is_df(x):
+        return x
+    d = int(d)
+    return x.ewm(span=d, adjust=False, min_periods=max(1, d // 5)).mean()
+
+
+def _ts_percentage(x, d, percentage=0.5):
+    if not _is_df(x):
+        return x
+    return x.rolling(int(d), min_periods=1).quantile(float(percentage))
+
+
+def _ts_scale(x, d, constant=0.0):
+    if not _is_df(x):
+        return x
+    d = int(d)
+    rmin = x.rolling(d, min_periods=1).min()
+    rmax = x.rolling(d, min_periods=1).max()
+    diff = rmax - rmin
+    return ((x - rmin) / diff + float(constant)).where(diff > 1e-10)
+
+
+def _ts_rank_spec(x, d, constant=0.0):
+    """``constant=1`` -> percentile rank; otherwise the integer rank in 1..d."""
+    if float(constant) == 1.0:
+        return _ts_rank(x, d)
+    d = int(d)
+
+    def fn(W):
+        last = W[:, :, -1]
+        valid = np.isfinite(W)
+        res = ((W <= last[:, :, None]) & valid).sum(axis=2).astype("float64")
+        return np.where(np.isfinite(last), res, np.nan)
+
+    return _window_reduce(x, d, fn, min_periods=_minp(d))
+
+
+def _ts_quantile(x, d, driver="gaussian"):
+    if not _is_df(x):
+        return x
+    rank = _ts_rank(x, d)
+    if driver == "uniform":
+        return rank
+    if driver != "gaussian":
+        raise OpError(f"ts_quantile: unknown driver {driver!r}")
+    from scipy.stats import norm
+
+    arr = norm.ppf(np.clip(rank.to_numpy(dtype="float64"), 1e-10, 1 - 1e-10))
+    return pd.DataFrame(arr, index=x.index, columns=x.columns)
+
+
+def _ts_arg_lag(x, d, which):
+    """Days since the window max/min (0 = today)."""
+    d = int(d)
+
+    def fn(W):
+        valid = np.isfinite(W)
+        fill = np.where(valid, W, -np.inf if which == "max" else np.inf)
+        pos = np.argmax(fill, axis=2) if which == "max" else np.argmin(fill, axis=2)
+        res = (d - 1 - pos).astype("float64")
+        return np.where(np.isfinite(W[:, :, -1]), res, np.nan)
+
+    return _window_reduce(x, d, fn, min_periods=_minp(d))
+
+
+def _ts_product(x, d):
+    return _window_reduce(
+        x, d, lambda W: np.nanprod(W, axis=2), min_periods=_minp(d)
+    )
+
+
+def _ts_hhi(x, d):
+    def fn(W):
+        mag = np.abs(W)
+        total = np.nansum(mag, axis=2)
+        share = mag / np.where(total > 0, total, np.nan)[:, :, None]
+        return np.nansum(share**2, axis=2)
+
+    return _window_reduce(x, d, fn, min_periods=_minp(d))
+
+
+def _ts_entropy(x, d):
+    def fn(W):
+        mag = np.abs(W)
+        total = np.nansum(mag, axis=2)
+        share = mag / np.where(total > 0, total, np.nan)[:, :, None]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            terms = np.where(share > 0, share * np.log(share), 0.0)
+        return -np.nansum(terms, axis=2)
+
+    return _window_reduce(x, d, fn, min_periods=_minp(d))
+
+
+def _ts_mad(x, d):
+    def fn(W):
+        mu = np.nanmean(W, axis=2, keepdims=True)
+        return np.nanmean(np.abs(W - mu), axis=2)
+
+    return _window_reduce(x, d, fn, min_periods=_minp(d))
+
+
+def _ts_max_drawdown(x, d):
+    def fn(W):
+        filled = np.where(np.isfinite(W), W, -np.inf)
+        peak = np.maximum.accumulate(filled, axis=2)
+        safe = np.where(np.isfinite(peak) & (peak > -np.inf), peak, np.nan)
+        with np.errstate(all="ignore"):
+            dd = W / safe - 1.0
+        return np.nanmin(dd, axis=2)
+
+    return _window_reduce(x, d, fn, min_periods=_minp(d))
+
+
+def _ts_gain_loss_ratio(x, d):
+    def fn(W):
+        diff = W[:, :, 1:] - W[:, :, :-1]
+        gains = np.nansum(np.where(diff > 0, diff, 0.0), axis=2)
+        losses = np.nansum(np.where(diff < 0, -diff, 0.0), axis=2)
+        return np.where(losses > 0, gains / np.where(losses > 0, losses, np.nan), np.nan)
+
+    return _window_reduce(x, d, fn, min_periods=_minp(d))
+
+
+def _ts_positive_ratio(x, d):
+    if not _is_df(x):
+        return x
+    positive = (x > 0).where(x.notna())
+    return positive.rolling(int(d), min_periods=1).mean()
+
+
+def _ts_count_nans(x, d):
+    if not _is_df(x):
+        return x
+    return x.isna().rolling(int(d), min_periods=1).sum()
+
+
+def _ts_bollinger(x, d, k):
+    ma = _ts_apply(x, d, "mean")
+    sd = _ts_std_dev(x, d)
+    upper = ma + float(k) * sd
+    lower = ma - float(k) * sd
+    return ma, sd, upper, lower
+
+
+def _ts_bollinger_percent(x, d, k=2.0):
+    ma, sd, upper, lower = _ts_bollinger(x, d, k)
+    diff = upper - lower
+    return ((x - lower) / diff).where(diff.abs() > 0)
+
+
+def _ts_bollinger_position(x, d, k=2.0):
+    pct = _ts_bollinger_percent(x, d, k)
+    return pct.clip(0, 1) if _is_df(pct) else pct
+
+
+def _ts_bollinger_width(x, d, k=2.0):
+    ma, sd, upper, lower = _ts_bollinger(x, d, k)
+    denom = ma.abs().where(ma.abs() > 1e-12)
+    return 2.0 * float(k) * sd / denom
+
+
+def _ts_max_diff(x, d):
+    return x - _ts_apply(x, d, "max")
+
+
+def _ts_min_diff(x, d):
+    return x - _ts_apply(x, d, "min")
+
+
+def _ts_min_max_diff(x, d, f=0.5):
+    return x - float(f) * (_ts_apply(x, d, "min") + _ts_apply(x, d, "max"))
+
+
+def _ts_range(x, d):
+    return _ts_apply(x, d, "max") - _ts_apply(x, d, "min")
+
+
+def _ts_extreme_ratio(x, d):
+    denom = _ts_apply(x, d, "min")
+    denom = denom.where(denom.abs() > 1e-12)
+    return _ts_apply(x, d, "max") / denom
+
+
+def _ts_returns_spec(x, d, mode=1.0):
+    if not _is_df(x):
+        return x
+    shifted = x.shift(int(d))
+    res = (x - shifted) / shifted.where(shifted.abs() > 1e-12)
+    if float(mode) == 0:
+        res = res * 100
+    return res
+
+
+def _ts_av_diff(x, d):
+    return x - _ts_apply(x, d, "mean")
+
+
+def _ts_delta_spec(x, d):
+    return x - x.shift(int(d)) if _is_df(x) else x
+
+
+register("ts_arg_max", "time-series", [X, W], "days since the window max (0 = today)", 2, 2)(
+    lambda x, d: _ts_arg_lag(x, d, "max")
+)
+register("ts_arg_min", "time-series", [X, W], "days since the window min (0 = today)", 2, 2)(
+    lambda x, d: _ts_arg_lag(x, d, "min")
+)
+register("ts_av_diff", "time-series", [X, W], "x - ts_mean(x, d)", 2, 2)(_ts_av_diff)
+register(
+    "ts_bollinger_percent",
+    "time-series",
+    [X, W, Arg("k", "scalar", 2.0)],
+    "(x - lower) / (upper - lower), bands = mean +/- k*std",
+    2,
+    3,
+)(_ts_bollinger_percent)
+register(
+    "ts_bollinger_position",
+    "time-series",
+    [X, W, Arg("k", "scalar", 2.0)],
+    "bollinger percent clipped to [0, 1]",
+    2,
+    3,
+)(_ts_bollinger_position)
+register(
+    "ts_bollinger_width",
+    "time-series",
+    [X, W, Arg("k", "scalar", 2.0)],
+    "2*k*std / |mean| (band width relative to the mean)",
+    2,
+    3,
+)(_ts_bollinger_width)
+register("ts_count_nans", "time-series", [X, W], "number of NaNs inside the window", 2, 2)(
+    _ts_count_nans
+)
+register("ts_delta", "time-series", [X, Arg("d", "lag")], "x - x(t-d) (lag, d >= 1)", 2, 2)(_ts_delta_spec)
+register("ts_ema", "time-series", [X, W], "exponential moving average, span = d", 2, 2)(_ts_ema)
+register("ts_entropy", "time-series", [X, W], "entropy of |x| shares inside the window", 2, 2)(
+    _ts_entropy
+)
+register(
+    "ts_extreme_ratio",
+    "time-series",
+    [X, W],
+    "ts_max(x, d) / ts_min(x, d)",
+    2,
+    2,
+)(_ts_extreme_ratio)
+register(
+    "ts_gain_loss_ratio",
+    "time-series",
+    [X, W],
+    "sum of positive changes / sum of |negative changes| inside the window",
+    2,
+    2,
+)(_ts_gain_loss_ratio)
+register("ts_hhi", "time-series", [X, W], "Herfindahl index of |x| shares", 2, 2)(_ts_hhi)
+register("ts_mad", "time-series", [X, W], "mean absolute deviation from the window mean", 2, 2)(
+    _ts_mad
+)
+register("ts_max_diff", "time-series", [X, W], "x - ts_max(x, d)", 2, 2)(_ts_max_diff)
+register(
+    "ts_max_drawdown",
+    "time-series",
+    [X, W],
+    "worst drawdown inside the window",
+    2,
+    2,
+)(_ts_max_drawdown)
+register("ts_min_diff", "time-series", [X, W], "x - ts_min(x, d)", 2, 2)(_ts_min_diff)
+register(
+    "ts_min_max_diff",
+    "time-series",
+    [X, W, Arg("f", "scalar", 0.5)],
+    "x - f * (ts_min + ts_max)",
+    2,
+    3,
+)(_ts_min_max_diff)
+register(
+    "ts_percentage",
+    "time-series",
+    [X, W, Arg("percentage", "scalar", 0.5)],
+    "rolling quantile of x at `percentage`",
+    2,
+    3,
+)(_ts_percentage)
+register(
+    "ts_positive_ratio",
+    "time-series",
+    [X, W],
+    "fraction of positive values inside the window",
+    2,
+    2,
+)(_ts_positive_ratio)
+register("ts_product", "time-series", [X, W], "rolling product", 2, 2)(_ts_product)
+register(
+    "ts_quantile",
+    "time-series",
+    [X, W, Arg("driver", "value", None)],
+    "rank mapped through the gaussian (or uniform) quantile function",
+    2,
+    3,
+)(_ts_quantile)
+register("ts_range", "time-series", [X, W], "ts_max(x, d) - ts_min(x, d)", 2, 2)(_ts_range)
+register(
+    "ts_rank",
+    "time-series",
+    [X, W, Arg("constant", "scalar", 0.0)],
+    "rank of today's value in the window; constant=1 -> percentile",
+    2,
+    3,
+)(_ts_rank_spec)
+register(
+    "ts_returns",
+    "time-series",
+    [X, W, Arg("mode", "scalar", 1.0)],
+    "(x - x(t-d)) / x(t-d); mode=0 -> percent",
+    2,
+    3,
+)(_ts_returns_spec)
+register(
+    "ts_scale",
+    "time-series",
+    [X, W, Arg("constant", "scalar", 0.0)],
+    "min-max scale of x inside the window, plus `constant`",
+    2,
+    3,
+)(_ts_scale)
+register("ts_std_dev", "time-series", [X, W], "rolling standard deviation (ddof=0)", 2, 2)(
+    _ts_std_dev
+)
+
+
 #: operators that are *not* allowed to appear inside another window arg, used
 #: by the validator to reject nonsense like ts_mean(x, ts_mean(y, 5))
 INFIX = ("+", "-", "*", "/", "^", ">", "<", ">=", "<=", "==", "!=", "&", "|", "!")
@@ -457,14 +829,20 @@ def check_windows(windows: Iterable[int], allowed: Iterable[int] = ALLOWED_WINDO
     return []
 
 
-def catalog_text() -> str:
+def catalog_text(only: Optional[Iterable[str]] = None) -> str:
     """Compact operator cheat-sheet handed to the implementer agent (2.2)."""
+    allowed = set(only) if only is not None else None
     lines = []
     for cat in ("element-wise", "cross-sectional", "time-series", "conditional"):
+        ops = [
+            op
+            for op in REGISTRY.values()
+            if op.category == cat and (allowed is None or op.name in allowed)
+        ]
+        if not ops:
+            continue
         lines.append(f"[{cat}]")
-        for op in REGISTRY.values():
-            if op.category != cat:
-                continue
+        for op in ops:
             sig = ", ".join(a.name for a in op.args)
             lines.append(f"  {op.name}({sig})  -- {op.doc}")
     lines.append("[infix]")

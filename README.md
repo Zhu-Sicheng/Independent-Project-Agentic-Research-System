@@ -64,7 +64,7 @@ python -m factorlab expr --expression="ts_std(returns,20)" --grid     # 走完�
 ```
 
 > PowerShell 里以 `-` 开头的表达式要用 `--expression="..."` 的等号写法，否则会被当成参数名。
-> 测试：`python -m unittest discover -s tests`（45 个用例）。
+> 测试：`python -m unittest discover -s tests`（57 个用例）。
 
 ---
 
@@ -79,7 +79,8 @@ factorlab/
     sample.py          # 合成数据生成器（带真实因子结构，无未来函数）
     us_equity.py       # 真实数据：逐票 CSV + 成分股区间 -> 面板 + 元数据
   expr/
-    ops.py             # 算子注册表（同时是给 agent 的算子说明书）
+    ops.py             # 算子注册表（实现 + 说明）
+    approved.py        # Agent 只能使用的算子白名单（ts_operators.md）
     parser.py          # 表达式 tokenizer + 递归下降解析器 + AST 改写
     evaluator.py       # AST 在面板上求值
     validate.py        # 静态校验：字段、算子、窗口、复杂度
@@ -103,6 +104,7 @@ factorlab/
   cli.py               # 命令行入口
 docs/
   agent_contracts.md   # 2.1 / 2.2 / 3 的 JSON 接口契约
+  operators.md         # 白名单算子的签名与定义
 ```
 
 ---
@@ -201,22 +203,38 @@ panel = load_panel("data/other")     # date+ticker 长表，或一个字段一�
 
 ```text
 -ts_mean(returns, 5)
--rank(ts_std(returns, 20))
-ts_returns(close, 20) / ts_std(returns, 60)
+-rank(ts_std_dev(returns, 20))
+ts_returns(close, 20) / ts_std_dev(returns, 60)
 if_else(rank(cap) > 0.3, -ts_mean(returns, 20), nan)
--ts_corr(close, volume, 20) * ts_rank(volume, 60)
+-ts_rank(ts_returns(close, 5), 20) * ts_rank(volume / ts_mean(volume, 20), 20)
 ```
 
-### 4.2 算子
+### 4.2 算子白名单（Agent 2.2 只能使用这些）
+
+时序算子以 `ts_operators.md` 为准，共 35 个：
+
+| 类别 | 算子 |
+|---|---|
+| 位置/极值 | `ts_arg_max ts_arg_min ts_max ts_min ts_max_diff ts_min_diff ts_min_max_diff ts_range ts_extreme_ratio ts_max_drawdown` |
+| 中心/离散 | `ts_mean ts_median ts_std_dev ts_mad ts_zscore ts_ir ts_ema` |
+| 变化/收益 | `ts_delta ts_returns ts_sum ts_product ts_av_diff ts_decay_linear` |
+| 排名/分布 | `ts_rank ts_percentage ts_quantile ts_scale ts_count_nans ts_positive_ratio ts_entropy ts_hhi` |
+| 形态 | `ts_bollinger_percent ts_bollinger_position ts_bollinger_width ts_gain_loss_ratio` |
+
+非时序算子沿用原注册表，全部放行：
 
 | 类别 | 算子 |
 |---|---|
 | element-wise | `abs sign log log1p sqrt exp signed_power clip nan_to_num max min` |
-| cross-sectional（逐日截面） | `rank`（pct 排名 0~1）`zscore demean scale winsorize` |
-| time-series（逐股票时序） | `delay delta ts_returns ts_sum ts_mean ts_std ts_min ts_max ts_median ts_skew ts_kurt ts_rank ts_zscore ts_ir ts_argmax ts_argmin ts_corr ts_cov ts_decay_linear` |
-| conditional | `if_else(cond,a,b) mask(x,cond)` |
+| cross-sectional | `rank zscore demean scale winsorize` |
+| conditional | `if_else mask` |
 
-`rank` 是按日截面排名，`ts_*` 是逐股票滚动。滚动窗口的 `min_periods = max(3, d//2)`。
+校验器（`factorlab/expr/validate.py`）会拒绝白名单外的算子，并给出替换提示，例如
+`ts_std` → `use ts_std_dev`、`delay` → `use ts_delta / ts_returns`。
+白名单定义在 `factorlab/expr/approved.py`，新增算子时「在 `ops.py` 注册 + 追加到 `TS_OPERATORS`」两步即可；
+确有必要放开限制时传 `strict_operators=False`。
+
+`rank` 是按日截面排名，`ts_*` 是逐股票滚动。除 `ts_delta`（lag，可为 1）外，窗口参数受 4.3 约束。
 
 ### 4.3 时间窗口规则
 

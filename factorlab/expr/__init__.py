@@ -1,7 +1,8 @@
 """Factor expression language: parser, operator registry, evaluator, scripts."""
 
-from . import parser, ops
+from . import approved, ops, parser
 from .evaluator import EvalError, Evaluator, evaluate, evaluate_text
+from .approved import APPROVED_OPERATORS, TS_OPERATORS
 from .ops import REGISTRY, catalog_text
 from .script import ScriptError, run_script, validate_script
 from .spec import FactorSpec, SpecError
@@ -12,6 +13,9 @@ __all__ = [
     "ops",
     "REGISTRY",
     "catalog_text",
+    "APPROVED_OPERATORS",
+    "TS_OPERATORS",
+    "approved",
     "evaluate",
     "evaluate_text",
     "Evaluator",

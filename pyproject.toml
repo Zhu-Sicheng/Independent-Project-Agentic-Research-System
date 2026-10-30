@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "factorlab"
-version = "0.1.0"
+version = "0.2.0"
 description = "Agentic factor mining: panel data -> hypothesis -> expression/script -> grid backtest -> factor pool"
 readme = "README.md"
 requires-python = ">=3.10"

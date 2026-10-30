@@ -10,6 +10,7 @@ import pandas as pd
 from ..config import ALLOWED_WINDOWS
 from ..data.panel import PanelStore
 from . import parser as P
+from . import approved
 from .ops import REGISTRY
 
 
@@ -57,6 +58,7 @@ def validate_expression(
     allowed_windows: Iterable[int] = ALLOWED_WINDOWS,
     max_ops: int = 40,
     max_length: int = 800,
+    approved_only: bool = True,
 ) -> ValidationReport:
     report = ValidationReport(text=text)
     if not text or not text.strip():
@@ -83,6 +85,10 @@ def validate_expression(
                     f"unknown operator {node.name!r}; see the operator catalog"
                 )
                 continue
+            if approved_only:
+                message = approved.check_operator(node.name)
+                if message:
+                    report.add_error(message)
             if not (op.min_args <= len(node.args) <= op.max_args):
                 report.add_error(
                     f"{node.name} expects {op.min_args}..{op.max_args} arguments, "

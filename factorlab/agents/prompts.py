@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from ..config import ALLOWED_WINDOWS
-from ..expr.ops import catalog_text
+from ..expr.approved import catalog_text
 
 COMMON_RULES = """
 You are part of a systematic equity factor research team. Work is done on a
@@ -90,7 +90,7 @@ description into EITHER
 1) a declarative expression, e.g.
    "-rank(ts_mean(returns, 5))"
    "if_else(rank(cap) > 0.3, -ts_mean(returns, 20), nan)"
-   "-ts_corr(close, volume, 20) * ts_rank(volume, 60)"
+   "-ts_rank(ts_returns(close, 5), 20) * ts_rank(volume / ts_mean(volume, 20), 20)"
 
 2) or a python script, only when the factor genuinely needs iterative
    cross-sectional computation that the expression language cannot express.
@@ -100,7 +100,8 @@ description into EITHER
    No imports, no file or network access. Declare tunable windows in
    `param_grid`, e.g. {"window": [5, 20, 60]}.
 
-Valid operators:
+Approved operators (you may ONLY use these; anything else is rejected by the
+validator):
 """
         + catalog_text()
         + """
