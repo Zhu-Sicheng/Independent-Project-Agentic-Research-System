@@ -33,3 +33,7 @@ data/raw/
 
 
 *.log
+
+# deploy key for this machine (never commit)
+.deploy_key*
+
