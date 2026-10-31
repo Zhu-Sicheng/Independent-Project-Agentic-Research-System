@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "factorlab.expr.ops",
-  "implementation_sha256": "sha256:cffcbe572efac74f9679eb6cf43721c14d5da285af95a697f76da67896179e34",
+  "implementation_sha256": "sha256:48ab93a571c2b77ff9231ff7da37dcf815c18eefbbf9a3a48e5937a4d0814816",
   "approved": [
     "abs",
     "clip",
@@ -15,6 +15,7 @@
     "min",
     "nan_to_num",
     "rank",
+    "safe_div",
     "scale",
     "sign",
     "signed_power",
@@ -309,6 +310,28 @@
       "args": [
         {
           "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "safe_div",
+      "category": "element-wise",
+      "doc": "x / y with near-zero denominators replaced by NaN (Agent-3 arithmetic)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "y",
           "kind": "value",
           "default": null
         }
@@ -1320,6 +1343,6 @@
       "approved": true
     }
   ],
-  "fingerprint": "sha256:53c2dd24655a4d51cd7fc49771653629de4c1142f89649d725736ea24a48c116",
-  "generated_at_utc": "2026-10-31T09:29:58.486554+00:00"
+  "fingerprint": "sha256:10fad89824fb9ce50214e54f329f6360d49c93d539a36a841b9d9f8613eec0f1",
+  "generated_at_utc": "2026-10-31T10:59:39.675052+00:00"
 }

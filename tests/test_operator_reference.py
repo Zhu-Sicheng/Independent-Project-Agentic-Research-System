@@ -185,7 +185,7 @@ class TestCatalog(unittest.TestCase):
         self.assertEqual(catalog["schema_version"], "1.0")
         self.assertEqual(len(catalog["operators"]), len(REGISTRY))
         approved = [op for op in catalog["operators"] if op["approved"]]
-        self.assertEqual(len(approved), 53)
+        self.assertEqual(len(approved), 54)
         ts = [op for op in approved if op["name"].startswith("ts_")]
         self.assertEqual(len(ts), 35)
         mean = next(op for op in catalog["operators"] if op["name"] == "ts_mean")
@@ -209,7 +209,7 @@ class TestCatalog(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = write_catalog(Path(tmp) / "operators.json", approved_only=True)
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(len(payload["operators"]), 53)
+            self.assertEqual(len(payload["operators"]), 54)
             self.assertIn("generated_at_utc", payload)
             self.assertNotIn("ts_corr", {op["name"] for op in payload["operators"]})
 

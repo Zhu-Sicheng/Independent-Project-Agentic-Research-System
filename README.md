@@ -258,7 +258,7 @@ Non-time-series operators (all approved):
 
 | family | operators |
 |---|---|
-| element-wise | `abs sign log log1p sqrt exp signed_power clip nan_to_num max min` |
+| element-wise | `abs sign log log1p sqrt exp signed_power clip nan_to_num max min safe_div` |
 | cross-sectional | `rank zscore demean scale winsorize` |
 | conditional | `if_else mask` |
 
@@ -626,9 +626,22 @@ DISPLAY LAYER -- after the loop:
 ```
 
 ```powershell
-python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16 --rounds 2
-python -m factorlab.xy_pipeline --mode llm --max-files 40          # AGENTn_* env vars
+# deterministic / offline agents (his offline templates + our reviewer revisions)
+python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16
+
+# real LLM: Agents 2 and 3 call the model; Agent 1 stays offline unless asked
+python -m factorlab.xy_pipeline --mode offline --agent2-mode llm --agent3-mode llm     --llm-max-turns 12 --llm-tool-calls 24 --llm-token-budget 500000
 ```
+
+Feedback is bounded: `--rounds` (default 3) is the hard cap, `--patience`
+(default 1) stops the loop as soon as a round produces no better in-sample
+Sharpe, a round with no new expressions also stops, and every expression is
+deduplicated by its canonical form so the same formula cannot be re-fed
+forever. Offline mode gets exactly one reviewer-revision round. In LLM mode the
+per-agent caps (`--llm-max-turns`, `--llm-tool-calls`, `--llm-token-budget`)
+bound the API budget on top of that; chat-completion providers resend the whole
+conversation each turn, so the token budget is the number that stops a run
+first (his Azure-era 60k default was raised).
 
 Outputs go to `experiments/xy/<run_id>/` (gitignored): `agent1|2|3_round*/`
 artifacts, `research_memory.sqlite3` (feedback records), `display/<expr_id>/`
@@ -902,7 +915,7 @@ if_else(rank(cap) > 0.3, -ts_mean(returns, 20), nan)
 
 | 类别 | 算子 |
 |---|---|
-| element-wise | `abs sign log log1p sqrt exp signed_power clip nan_to_num max min` |
+| element-wise | `abs sign log log1p sqrt exp signed_power clip nan_to_num max min safe_div` |
 | cross-sectional | `rank zscore demean scale winsorize` |
 | conditional | `if_else mask` |
 
@@ -1212,9 +1225,18 @@ Agent 3 假设 -> 表达式 + 数值预览（expressions.json）
 ```
 
 ```powershell
-python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16 --rounds 2
-python -m factorlab.xy_pipeline --mode llm --max-files 40          # 需要 AGENTn_* 环境变量
+# 离线（他的固定模板 + 我们评审给出的改写）
+python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16
+
+# 真实 LLM：Agent 2/3 调用模型，Agent 1 保持离线
+python -m factorlab.xy_pipeline --mode offline --agent2-mode llm --agent3-mode llm     --llm-max-turns 12 --llm-tool-calls 24 --llm-token-budget 500000
 ```
+
+反馈有界：`--rounds`（默认 3）是硬上限，`--patience`（默认 1）在某一轮没有产生更高的
+IS Sharpe 时立刻停止；某一轮没有新表达式也会停止；每个表达式按 canonical 形式去重，
+同一公式不会被反复反馈。离线模式只有一轮评审改写。LLM 模式下每个 agent 的
+`--llm-max-turns` / `--llm-tool-calls` / `--llm-token-budget` 再叠一层 API 预算上限；
+chat completion 每轮都会重发上下文，token 预算通常最先触顶（他 Azure 时代的 60k 默认已上调）。
 
 结果写到 `experiments/xy/<run_id>/`（已 gitignore）：`agent1|2|3_round*/` 产物、
 `research_memory.sqlite3`（反馈记录）、`display/<expr_id>/`（OOS/holdout 图 + 全样本

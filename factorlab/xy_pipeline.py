@@ -55,6 +55,8 @@ FIELD_MAP: dict[str, str] = {
     "DlyPrc": "close",
     "DlyVol": "volume",
     "DlyCap": "cap",
+    "DlyRet": "returns",
+    "DlyRetx": "returns",
     "Close": "close",
     "Open": "open",
     "High": "high",
@@ -119,6 +121,39 @@ def load_agent_document(name: str) -> dict:
     return json.loads(base.read_text(encoding="utf-8-sig"))
 
 
+def apply_llm_overrides(
+    values: dict,
+    max_turns: Optional[int] = None,
+    max_tool_calls: Optional[int] = None,
+    token_budget: Optional[int] = None,
+) -> dict:
+    """Point his LLM config at an OpenAI-compatible endpoint (DeepSeek/OpenAI).
+
+    His examples default to Azure-style ``auth_header: api-key``; DeepSeek and
+    OpenAI need ``Authorization: Bearer``. Chat-completion providers re-send the
+    whole conversation on every turn, so the per-run token budget is the number
+    that usually stops a run first; it is raised from the Azure-era default.
+    """
+    import os
+
+    llm = dict(values.get("llm") or {})
+    llm["auth_header"] = os.getenv("FACTORLAB_AGENT_AUTH_HEADER", "Authorization")
+    llm["timeout_seconds"] = int(
+        os.getenv("FACTORLAB_LLM_TIMEOUT", llm.get("timeout_seconds", 120))
+    )
+    llm.setdefault("max_retries", 2)
+    llm["max_total_tokens"] = int(
+        token_budget
+        or os.getenv("FACTORLAB_AGENT_TOKEN_BUDGET", str(llm.get("max_total_tokens") or 400000))
+    )
+    if max_turns is not None:
+        values["max_turns"] = int(max_turns)
+    if max_tool_calls is not None:
+        values["max_tool_calls"] = int(max_tool_calls)
+    values["llm"] = llm
+    return values
+
+
 # --------------------------------------------------------------------------- #
 # his agents
 # --------------------------------------------------------------------------- #
@@ -130,6 +165,9 @@ def run_agent1(
     max_files: int = 40,
     max_rows: int = 20000,
     plots: bool = False,
+    llm_max_turns: Optional[int] = None,
+    llm_tool_calls: Optional[int] = None,
+    llm_token_budget: Optional[int] = None,
 ) -> tuple[Path, dict]:
     ensure_agents_importable()
     from agent1.agent import EDAAgent
@@ -139,6 +177,8 @@ def run_agent1(
     from agent1.runtime import RunContext, create_run_dir
 
     values = load_agent_document("agent1")
+    if mode == "llm":
+        values = apply_llm_overrides(values, llm_max_turns, llm_tool_calls, llm_token_budget)
     # his CLI resolves these two before validation; do the same for in-process use
     data_root = Path(data_root).resolve()
     output_root = Path(output_root).resolve()
@@ -171,12 +211,17 @@ def run_agent2(
     min_ideas: int = 2,
     max_ideas: int = 6,
     knowledge_cutoff: Optional[str] = None,
+    llm_max_turns: Optional[int] = None,
+    llm_tool_calls: Optional[int] = None,
+    llm_token_budget: Optional[int] = None,
 ) -> tuple[Path, dict]:
     ensure_agents_importable()
     from agent2.agent import IdeaAgent
     from research.common import IdeaConfig
 
     values = load_agent_document("agent2")
+    if mode == "llm":
+        values = apply_llm_overrides(values, llm_max_turns, llm_tool_calls, llm_token_budget)
     agent1_run = Path(agent1_run).resolve()
     output_root = Path(output_root).resolve()
     memory_db = Path(memory_db).resolve()
@@ -209,12 +254,17 @@ def run_agent3(
     max_expressions_per_idea: int = 1,
     validation_max_files: int = 8,
     knowledge_cutoff: Optional[str] = None,
+    llm_max_turns: Optional[int] = None,
+    llm_tool_calls: Optional[int] = None,
+    llm_token_budget: Optional[int] = None,
 ) -> tuple[Path, dict]:
     ensure_agents_importable()
     from agent3.agent import ExpressionAgent
     from research.common import ExpressionConfig
 
     values = load_agent_document("agent3")
+    if mode == "llm":
+        values = apply_llm_overrides(values, llm_max_turns, llm_tool_calls, llm_token_budget)
     agent1_run = Path(agent1_run).resolve()
     agent2_run = Path(agent2_run).resolve()
     output_root = Path(output_root).resolve()
@@ -298,6 +348,17 @@ def _json_safe(value):
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
     return value
+
+
+def round_improved(round_best: float, best_so_far: float, tolerance: float = 1e-9) -> bool:
+    """True when a feedback round produced a better in-sample result than before."""
+    import math
+
+    if not isinstance(round_best, (int, float)) or not math.isfinite(round_best):
+        return False
+    if not isinstance(best_so_far, (int, float)) or not math.isfinite(best_so_far):
+        return True
+    return float(round_best) > float(best_so_far) + tolerance
 
 
 def hypothesis_from_idea(idea: dict) -> dict:
@@ -438,7 +499,35 @@ def write_feedback(memory_db: Path, records: list[dict], run_id: str, research_e
                 continue
             is_metrics = ((record.get("is") or {}).get("metrics")) or {}
             stability = record.get("stability_is") or {}
+            flags = ", ".join(stability.get("flags") or []) or "none"
+            notes = (
+                f"Expression: {record.get('expression')}. "
+                f"Reviewer: {record.get('decision')} - {str(record.get('reasoning'))[:600]} "
+                f"Stability flags: {flags}. These are in-sample numbers only; revise to "
+                f"improve them and remove the flags. Do not assume any out-of-sample result."
+            )
             payload = {
+                # fields Agent 3's memory observation keeps in its prompt
+                "evaluation_id": f"{record.get('expression_id')}_is_r{record.get('round', 0)}",
+                "expression_id": record.get("expression_id"),
+                "evaluation_end": research_end,
+                "split": "development",
+                "outcome": "inconclusive",
+                "failure_type": flags,
+                "metrics": {
+                    key: is_metrics.get(key)
+                    for key in (
+                        "sharpe",
+                        "ann_return",
+                        "turnover",
+                        "max_drawdown",
+                        "rank_ic",
+                        "pearson_ic",
+                    )
+                },
+                "notes": notes,
+                "verification": "ours_in_sample_backtest_and_stability",
+                # extra provenance for our own tooling
                 "stage": f"ours_is_evaluation_round_{record.get('round', 0)}",
                 "expression": record.get("expression"),
                 "in_sample": {
@@ -471,19 +560,15 @@ def write_feedback(memory_db: Path, records: list[dict], run_id: str, research_e
                     "reasoning": record.get("reasoning"),
                     "suggested_changes": record.get("suggested_changes", []),
                 },
-                "instruction": (
-                    "These are in-sample numbers only. Revise the expression to improve the "
-                    "in-sample evidence and remove the stability flags; do not assume any "
-                    "out-of-sample result."
-                ),
             }
             memory.append(
-                kind="attempt",
+                kind="feedback",
                 run_id=run_id,
                 logical_id=f"{record.get('expression_id')}_is_feedback",
                 dataset_id=record.get("_dataset_id") or "ds_market",
                 family=record.get("_family") or "unknown",
                 data_end=research_end,
+                split="development",
                 outcome="inconclusive",
                 payload=payload,
             )
@@ -607,7 +692,14 @@ def run_pipeline(
     research_end: str = IS_END_DEFAULT,
     max_evals: int = 16,
     max_expressions_per_idea: int = 1,
-    rounds: int = 2,
+    rounds: int = 3,
+    patience: int = 1,
+    agent_modes: Optional[dict] = None,
+    min_ideas: int = 2,
+    max_ideas: int = 6,
+    llm_max_turns: Optional[int] = None,
+    llm_tool_calls: Optional[int] = None,
+    llm_token_budget: Optional[int] = None,
     data_root: Optional[Path] = None,
     panel_dir: Optional[Path] = None,
     run_id: Optional[str] = None,
@@ -622,6 +714,11 @@ def run_pipeline(
     from factorlab.expr.spec import FactorSpec
     from factorlab.markdown import md_table
     from factorlab.pool.pool import FactorPool
+
+    modes = {"agent1": mode, "agent2": mode, "agent3": mode}
+    modes.update(agent_modes or {})
+    if any(value == "llm" for value in modes.values()):
+        _export_agent_llm_env()
 
     started = time.time()
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-xy")
@@ -638,17 +735,25 @@ def run_pipeline(
         if verbose:
             print(message, flush=True)
 
-    say(f"run {run_id}: mode={mode}, rounds={rounds}, research_end={research_end}")
+    say(
+        f"run {run_id}: agents={modes}, max_rounds={rounds}, patience={patience}, "
+        f"research_end={research_end}"
+    )
     say(f"data: {data_root}")
 
     # ---- his agents: data understanding + ideas (cutoff = IS end) ----
     agent1_dir, agent1_report = run_agent1(
-        output_root / "agent1", data_root, research_end, mode=mode,
+        output_root / "agent1", data_root, research_end, mode=modes["agent1"],
         max_files=max_files, max_rows=max_rows, plots=plots,
+        llm_max_turns=llm_max_turns, llm_tool_calls=llm_tool_calls,
+        llm_token_budget=llm_token_budget,
     )
     say(f"agent1: {agent1_dir.name} status={agent1_report.get('status')}")
     agent2_dir, agent2_result = run_agent2(
-        agent1_dir, output_root / "agent2", memory_db, operator_file, mode=mode,
+        agent1_dir, output_root / "agent2", memory_db, operator_file,
+        mode=modes["agent2"], min_ideas=min_ideas, max_ideas=max_ideas,
+        llm_max_turns=llm_max_turns, llm_tool_calls=llm_tool_calls,
+        llm_token_budget=llm_token_budget,
     )
     ideas_list = agent2_result.get("ideas", [])
     ideas = {idea["idea_id"]: idea for idea in ideas_list}
@@ -674,12 +779,22 @@ def run_pipeline(
             record["_family"] = idea.get("family", "unknown")
 
     round_index = 0
-    while round_index < max(1, rounds):
-        say(f"round {round_index}: agent3 ...")
+    best_is_sharpe = float("-inf")
+    stall_rounds = 0
+    stop_reason = "max_rounds_reached"
+    round_history: list[dict] = []
+    max_rounds = max(1, rounds)
+    patience = max(1, patience)
+    feedback_mode = modes["agent3"] == "llm"
+
+    while round_index < max_rounds:
+        say(f"round {round_index}: agent3 ({modes['agent3']}) ...")
         agent3_dir, agent3_result = run_agent3(
             agent1_dir, agent2_dir, output_root / f"agent3_round{round_index}",
-            memory_db, operator_file, mode=mode,
+            memory_db, operator_file, mode=modes["agent3"],
             max_expressions_per_idea=max_expressions_per_idea,
+            llm_max_turns=llm_max_turns, llm_tool_calls=llm_tool_calls,
+            llm_token_budget=llm_token_budget,
         )
         agent3_runs.append(str(agent3_dir))
         candidates = agent3_result.get("expressions", [])
@@ -693,34 +808,90 @@ def run_pipeline(
             candidate.setdefault("_family", idea.get("family"))
         new_records = evaluate_is_candidates(
             panel_is, candidates, ideas, seen, run_id, round_index, grid, critic,
-            max_rounds=max(1, rounds), verbose=verbose,
+            max_rounds=max_rounds, verbose=verbose,
         )
         annotate(new_records)
         records.extend(new_records)
-        say(f"round {round_index}: {len(new_records)} new evaluations (IS only)")
+        evaluated = [
+            record
+            for record in new_records
+            if record.get("status") == "evaluated"
+            and isinstance((record.get("is") or {}).get("metrics", {}).get("sharpe"), (int, float))
+        ]
+        round_best = max(
+            ((record["is"]["metrics"]["sharpe"] for record in evaluated)), default=float("-inf")
+        )
+        improved = round_improved(round_best, best_is_sharpe)
+        if improved:
+            best_is_sharpe = round_best
+            stall_rounds = 0
+        else:
+            stall_rounds += 1
+        round_history.append(
+            {
+                "round": round_index,
+                "candidates": len(candidates),
+                "new_evaluations": len(evaluated),
+                "round_best_is_sharpe": None if round_best == float("-inf") else round_best,
+                "improved": improved,
+                "stall_rounds": stall_rounds,
+            }
+        )
+        say(
+            f"round {round_index}: {len(new_records)} new evaluations (IS only); "
+            f"best IS Sharpe {round_best if round_best != float('-inf') else float('nan'):.3f}; "
+            f"stall {stall_rounds}"
+        )
 
-        if round_index + 1 >= rounds:
+        if not new_records:
+            stop_reason = "no_new_candidates"
+            break
+        if round_index + 1 >= max_rounds:
+            stop_reason = "max_rounds_reached"
+            break
+        if stall_rounds >= patience:
+            stop_reason = f"no_improvement_for_{stall_rounds}_round(s)"
+            say(f"stopping feedback: {stop_reason}")
             break
 
-        revisions: list[dict] = []
-        if mode == "llm":
+        if feedback_mode:
             written = write_feedback(memory_db, new_records, run_id, research_end)
             say(f"round {round_index}: wrote {written} in-sample feedback records to memory")
+            round_index += 1
+            continue
         revisions = candidates_from_revisions(new_records)
-        if mode != "llm" and not revisions:
+        if not revisions:
+            stop_reason = "no_offline_revisions"
             say(f"round {round_index}: no offline revisions; stopping the loop")
             break
-        if revisions:
-            say(f"round {round_index}: {len(revisions)} reviewer revisions queued for round {round_index + 1}")
-            revision_records = evaluate_is_candidates(
-                panel_is, revisions, ideas, seen, run_id, round_index + 1, grid, critic,
-                max_rounds=max(1, rounds), verbose=verbose,
-            )
-            annotate(revision_records)
-            records.extend(revision_records)
-            say(f"round {round_index + 1}: {len(revision_records)} revision evaluations (IS only)")
-            break
-        round_index += 1
+        say(f"round {round_index}: {len(revisions)} reviewer revisions queued for round {round_index + 1}")
+        revision_records = evaluate_is_candidates(
+            panel_is, revisions, ideas, seen, run_id, round_index + 1, grid, critic,
+            max_rounds=max_rounds, verbose=verbose,
+        )
+        annotate(revision_records)
+        records.extend(revision_records)
+        say(f"round {round_index + 1}: {len(revision_records)} revision evaluations (IS only)")
+        round_history.append(
+            {
+                "round": round_index + 1,
+                "candidates": len(revisions),
+                "new_evaluations": len(revision_records),
+                "round_best_is_sharpe": max(
+                    (
+                        record["is"]["metrics"]["sharpe"]
+                        for record in revision_records
+                        if record.get("status") == "evaluated"
+                        and isinstance(record.get("is", {}).get("metrics", {}).get("sharpe"), (int, float))
+                    ),
+                    default=None,
+                ),
+                "improved": None,
+                "stall_rounds": None,
+            }
+        )
+        stop_reason = "reviewer_revisions_done"
+        break
 
     # ---- display layer: OOS/holdout computed and drawn here, never fed back ----
     records = display_evaluation(panel_full, records, run_id, output_root, verbose=verbose)
@@ -766,7 +937,11 @@ def run_pipeline(
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
         "elapsed_s": round(time.time() - started, 1),
         "mode": mode,
-        "rounds": rounds,
+        "agent_modes": modes,
+        "max_rounds": max_rounds,
+        "patience": patience,
+        "stop_reason": stop_reason,
+        "round_history": round_history,
         "research_end": research_end,
         "data_isolation": {
             "optimisation": "in-sample only (panel cut at research_end; grid selects on IS)",
@@ -813,6 +988,7 @@ def run_pipeline(
                 "rank_ic_is": _fmt(metrics.get("rank_ic")),
                 "stability_flags": ", ".join(stability.get("flags") or []) or "-",
                 "decision": record.get("decision") or "-",
+                "error": (record.get("error") or "")[:80],
             }
         )
         display = record.get("display") or {}
@@ -830,7 +1006,8 @@ def run_pipeline(
     lines = [
         f"# Merged pipeline run `{run_id}`",
         "",
-        f"- mode: `{mode}`; rounds requested: {rounds}; elapsed {summary['elapsed_s']}s",
+        f"- agent modes: {modes}; max feedback rounds: {max_rounds}; patience: {patience}; "
+        f"stopped: `{stop_reason}`; elapsed {summary['elapsed_s']}s",
         f"- **data isolation**: the optimisation loop sees **in-sample only** "
         f"(panel cut at {research_end}, {panel_is.shape[0]} of {panel_full.shape[0]} days); "
         f"OOS/holdout are computed only in the display layer below",
@@ -847,6 +1024,10 @@ def run_pipeline(
         "",
         md_table(display_rows),
         "",
+        "## Feedback rounds (in-sample only; early stop = no improvement)",
+        "",
+        md_table(round_history) if round_history else "_none_",
+        "",
         "## Agent logs",
         "",
     ] + [f"- {entry}" for entry in log]
@@ -857,7 +1038,11 @@ def run_pipeline(
 
 def main(argv: Optional[list[str]] = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=["offline", "llm"], default="offline")
+    parser.add_argument("--mode", choices=["offline", "llm"], default="offline",
+                        help="default mode for all three agents")
+    parser.add_argument("--agent1-mode", choices=["offline", "llm"], default=None)
+    parser.add_argument("--agent2-mode", choices=["offline", "llm"], default=None)
+    parser.add_argument("--agent3-mode", choices=["offline", "llm"], default=None)
     parser.add_argument("--data-root", default=None)
     parser.add_argument("--panel", default=None)
     parser.add_argument("--out-root", default=None)
@@ -866,14 +1051,31 @@ def main(argv: Optional[list[str]] = None) -> None:
         "--research-end", default=IS_END_DEFAULT,
         help="in-sample end; the optimisation loop never sees dates after it",
     )
-    parser.add_argument("--rounds", type=int, default=2, help="feedback rounds")
+    parser.add_argument("--rounds", type=int, default=3, help="maximum feedback rounds")
+    parser.add_argument("--patience", type=int, default=1,
+                        help="stop after this many rounds without an in-sample improvement")
+    parser.add_argument("--min-ideas", type=int, default=2)
+    parser.add_argument("--max-ideas", type=int, default=6)
+    parser.add_argument("--llm-max-turns", type=int, default=None, help="per-agent turn cap in LLM mode")
+    parser.add_argument("--llm-tool-calls", type=int, default=None, help="per-agent tool-call cap in LLM mode")
+    parser.add_argument("--llm-token-budget", type=int, default=None,
+                        help="per-run reported-token budget (chat APIs resend the context each turn)")
     parser.add_argument("--max-files", type=int, default=40, help="Agent-1 per-dataset file cap (0 = all)")
     parser.add_argument("--max-rows", type=int, default=20000)
     parser.add_argument("--max-evals", type=int, default=16)
     parser.add_argument("--max-expressions-per-idea", type=int, default=1)
     parser.add_argument("--plots", action="store_true")
     args = parser.parse_args(argv)
-    if args.mode == "llm":
+    agent_modes = {
+        name: value
+        for name, value in (
+            ("agent1", args.agent1_mode),
+            ("agent2", args.agent2_mode),
+            ("agent3", args.agent3_mode),
+        )
+        if value
+    }
+    if args.mode == "llm" or any(value == "llm" for value in agent_modes.values()):
         _export_agent_llm_env()
     summary = run_pipeline(
         mode=args.mode,
@@ -884,6 +1086,13 @@ def main(argv: Optional[list[str]] = None) -> None:
         max_evals=args.max_evals,
         max_expressions_per_idea=args.max_expressions_per_idea,
         rounds=args.rounds,
+        patience=args.patience,
+        agent_modes=agent_modes,
+        min_ideas=args.min_ideas,
+        max_ideas=args.max_ideas,
+        llm_max_turns=args.llm_max_turns,
+        llm_tool_calls=args.llm_tool_calls,
+        llm_token_budget=args.llm_token_budget,
         data_root=Path(args.data_root) if args.data_root else None,
         panel_dir=Path(args.panel) if args.panel else None,
         run_id=args.run_id,
@@ -903,9 +1112,9 @@ def _export_agent_llm_env() -> None:
     base = settings.base_url or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     model = settings.model or os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
     for index in (1, 2, 3):
-        os.environ.setdefault(f"AGENT{index}_BASE_URL", base)
-        os.environ.setdefault(f"AGENT{index}_API_KEY", key)
-        os.environ.setdefault(f"AGENT{index}_MODEL", model)
+        os.environ[f"AGENT{index}_BASE_URL"] = base
+        os.environ[f"AGENT{index}_API_KEY"] = key
+        os.environ[f"AGENT{index}_MODEL"] = model
 
 
 if __name__ == "__main__":

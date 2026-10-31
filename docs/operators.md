@@ -83,6 +83,9 @@ Implementation notes:
   `ts_returns` at `1e-12`). `ts_zscore` returns 0 for zero dispersion.
 - `ts_rank` without `constant=1` returns a count, not a percentile.
 - string literals are supported for mode arguments: `ts_quantile(x, 20, "uniform")`.
+- `safe_div(x, y)` is Agent 3's masked division (|y| <= 1e-12 -> NaN); it is
+  registered as an approved non-time-series operator so its canonical expressions
+  can be re-evaluated by our backtester.
 - a machine-readable snapshot is exported by
   `python -m factorlab.expr.catalog --out operators.json` (stable fingerprint).
 - `ts_arg_max` / `ts_arg_min` return **days since** the extreme (BRAIN
@@ -92,7 +95,7 @@ Implementation notes:
 
 | category | operators |
 |---|---|
-| element-wise | `abs`, `sign`, `log`, `log1p`, `sqrt`, `exp`, `signed_power`, `clip`, `nan_to_num`, `max`, `min` |
+| element-wise | `abs`, `sign`, `log`, `log1p`, `sqrt`, `exp`, `signed_power`, `clip`, `nan_to_num`, `max`, `min`, `safe_div` |
 | cross-sectional | `rank`, `zscore`, `demean`, `scale`, `winsorize` |
 | conditional | `if_else`, `mask` |
 | infix | `+ - * / ^`, `> < >= <= == !=`, `& | !` |

@@ -12,8 +12,10 @@ from factorlab.data.panel import PanelStore
 from factorlab.expr.validate import validate_expression
 from factorlab.xy_pipeline import (
     FIELD_MAP,
+    apply_llm_overrides,
     display_evaluation,
     hypothesis_from_idea,
+    round_improved,
     split_is_panel,
     translate_expression,
     write_feedback,
@@ -144,6 +146,48 @@ class TestIsolation(unittest.TestCase):
             self.assertTrue(any(p.get("expression") == "-ts_returns(close, 5)" for p in payloads))
             feedback = next(p for p in payloads if p.get("expression"))
             self.assertNotIn("out_of_sample", json.dumps(feedback).lower())
+            kinds = [record["kind"] for record in snapshot.records]
+            self.assertIn("feedback", kinds)
+            # the observation shown to the model keeps metrics/notes/failure_type
+            observed = snapshot.observation(next(r for r in snapshot.records if r["kind"] == "feedback"))
+            self.assertIn("metrics", observed["payload"])
+            self.assertIn("notes", observed["payload"])
+            self.assertEqual(observed["payload"]["split"], "development")
+
+
+class TestFeedbackLimits(unittest.TestCase):
+    def test_improvement_detection(self):
+        self.assertTrue(round_improved(1.2, 0.8))
+        self.assertTrue(round_improved(1.2, float("-inf")))
+        self.assertFalse(round_improved(0.8, 0.8))
+        self.assertFalse(round_improved(0.8, 0.9))
+        self.assertFalse(round_improved(float("-inf"), 0.9))
+        self.assertFalse(round_improved(None, 0.9))
+
+    def test_llm_config_uses_bearer_auth_and_timeout(self):
+        import os
+
+        values = {"llm": {"base_url_env": "AGENT2_BASE_URL", "auth_header": "api-key"}}
+        overridden = apply_llm_overrides(values)
+        self.assertEqual(overridden["llm"]["auth_header"], "Authorization")
+        self.assertGreaterEqual(overridden["llm"]["timeout_seconds"], 1)
+        self.assertIn("base_url_env", overridden["llm"])
+        os.environ.pop("FACTORLAB_AGENT_AUTH_HEADER", None)
+
+    def test_agent_llm_env_mapping(self):
+        import os
+        import sys
+
+        from factorlab.xy_pipeline import _export_agent_llm_env
+
+        os.environ["DEEPSEEK_API_KEY"] = "test-key"
+        os.environ["FACTORLAB_LLM_BASE_URL"] = "https://api.deepseek.com/v1"
+        os.environ["FACTORLAB_LLM_MODEL"] = "deepseek-chat"
+        _export_agent_llm_env()
+        for index in (1, 2, 3):
+            self.assertEqual(os.environ[f"AGENT{index}_BASE_URL"], "https://api.deepseek.com/v1")
+            self.assertEqual(os.environ[f"AGENT{index}_API_KEY"], "test-key")
+            self.assertEqual(os.environ[f"AGENT{index}_MODEL"], "deepseek-chat")
 
 
 class TestHypothesis(unittest.TestCase):

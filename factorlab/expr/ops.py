@@ -459,6 +459,16 @@ register("ts_decay_linear", "time-series", [X, W], "linear decay, recent weighte
     _ts_decay_linear
 )
 
+register(
+    "safe_div",
+    "element-wise",
+    [X, Y],
+    "x / y with near-zero denominators replaced by NaN (Agent-3 arithmetic)",
+    2,
+    2,
+)(lambda a, b: _safe_div(a, b))
+
+
 register("if_else", "conditional", [Arg("cond"), Arg("a"), Arg("b")], "cond ? a : b", 3, 3)(
     _if_else
 )
