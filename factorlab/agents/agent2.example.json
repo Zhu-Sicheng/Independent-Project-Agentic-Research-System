@@ -1,0 +1,23 @@
+{
+  "agent1_run": "latest",
+  "memory_db": "research_database/research.sqlite3",
+  "operator_file": "ts_operators.md",
+  "output_root": "outputs/agent2",
+  "mode": "offline",
+  "min_ideas": 4,
+  "max_ideas": 8,
+  "max_ideas_per_dataset": 6,
+  "max_ideas_per_family": 2,
+  "max_turns": 20,
+  "max_tool_calls": 48,
+  "memory_limit": 1000,
+  "llm": {
+    "base_url_env": "AGENT2_BASE_URL",
+    "api_key_env": "AGENT2_API_KEY",
+    "model_env": "AGENT2_MODEL",
+    "auth_header": "api-key",
+    "strict_tools": false,
+    "max_output_tokens": 4000,
+    "max_total_tokens": 120000
+  }
+}

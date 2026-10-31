@@ -1,0 +1,71 @@
+{
+  "data_root": "data",
+  "output_root": "outputs/agent1",
+  "mode": "offline",
+  "research_end": "2020-12-31",
+  "max_files_per_dataset": 0,
+  "max_rows_per_file": 20000,
+  "sample_size": 5000,
+  "max_scripts": 24,
+  "max_llm_turns": 16,
+  "max_tool_calls": 32,
+  "script_timeout_seconds": 600,
+  "seed": 42,
+  "plots": true,
+  "llm": {
+    "base_url_env": "AGENT1_BASE_URL",
+    "api_key_env": "AGENT1_API_KEY",
+    "model_env": "AGENT1_MODEL",
+    "auth_header": "api-key",
+    "strict_tools": false,
+    "timeout_seconds": 60,
+    "max_retries": 2,
+    "max_output_tokens": 3000,
+    "max_total_tokens": 60000,
+    "token_parameter": "max_tokens"
+  },
+  "overrides": [
+    {
+      "pattern": "OHLCVolumeMktCap/*.csv",
+      "kind": "market_ohlcv",
+      "date_column": "DATE",
+      "entity_column": "TICKER",
+      "fields": {
+        "Adj_Close": {
+          "description": "来源文件标记为复权收盘价；复权方法、计价单位和历史版本仍需确认",
+          "unit": null,
+          "availability": null,
+          "point_in_time_verified": false,
+          "approved_for_factor": false,
+          "adjustment": null
+        }
+      }
+    },
+    {
+      "pattern": "SPY_OHLCVolume*.csv",
+      "kind": "market_ohlcv",
+      "date_column": "DlyCalDt",
+      "entity_column": "PERMNO"
+    },
+    {
+      "pattern": "MASTER_UNIVERSE*.csv",
+      "kind": "interval_reference",
+      "entity_column": "permno"
+    },
+    {
+      "pattern": "security_master*.csv",
+      "kind": "interval_reference",
+      "entity_column": "permno"
+    },
+    {
+      "pattern": "permno_to_ticker*.csv",
+      "kind": "reference_table",
+      "entity_column": "PERMNO"
+    },
+    {
+      "pattern": "sp500_stocks_universe*.csv",
+      "kind": "reference_table",
+      "entity_column": "ticker"
+    }
+  ]
+}
