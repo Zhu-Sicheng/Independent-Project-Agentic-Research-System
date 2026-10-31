@@ -566,8 +566,9 @@ python -m factorlab.stability --run <run_id> --all
 python -m factorlab.stability --index        # rebuild the summary table
 ```
 
-Outputs go to `experiments/stability/<run_id>__<factor>/` (`pnl.png` with the
-baseline plus each check, `metrics.csv`, `README.md`). They never overwrite the
+Outputs go to `experiments/stability/<run_id>__<factor>/`: `pnl.png` puts the
+baseline and every check on a single axes (colour-coded by check group),
+plus `metrics.csv` and `README.md`. They never overwrite the
 batch figures or the single-run view.
 
 ### 9. Known limitations / next steps
@@ -1099,8 +1100,8 @@ python -m factorlab.stability --run <run_id> --all
 python -m factorlab.stability --index        # 重建汇总表
 ```
 
-结果写到 `experiments/stability/<run_id>__<factor>/`（`pnl.png` 含原配置与各检验曲线、
-`metrics.csv`、`README.md`），**不覆盖**批次图与单次 run 的图。
+结果写到 `experiments/stability/<run_id>__<factor>/`（`pnl.png` 把原配置与所有检验曲线画在
+同一张图上、按检验组用颜色区分，另有 `metrics.csv`、`README.md`），**不覆盖**批次图与单次 run 的图。
 
 ### 9. 已知限制 / 下一步
 

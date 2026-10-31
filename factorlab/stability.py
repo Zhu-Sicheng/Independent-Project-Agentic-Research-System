@@ -182,44 +182,71 @@ def build_variants(
     return variants
 
 
-def _draw(variants: list[Variant], out_path: Path, title: str) -> Path:
+GROUP_STYLE = {
+    "original": ("#000000", 2.4, "-"),
+    "subuniverse": ("#d62728", 1.6, "--"),
+    "cap": ("#8c564b", 1.3, "--"),
+    "transform": ("#ff7f0e", 1.1, "-"),
+    "decay": ("#1f77b4", 1.1, "-"),
+    "window": ("#2ca02c", 0.9, "-"),
+}
+
+
+def _group_colors(group: str, count: int) -> list:
+    """Shades of one colour per check group, so groups stay distinguishable."""
+    import matplotlib
+
+    cmap = {
+        "transform": matplotlib.colormaps["Oranges"],
+        "decay": matplotlib.colormaps["Blues"],
+        "window": matplotlib.colormaps["Greens"],
+    }.get(group)
+    if cmap is None or count <= 1:
+        return [GROUP_STYLE.get(group, ("#7f7f7f", 1.0, "-"))[0]] * count
+    return [cmap(x) for x in np.linspace(0.45, 0.95, count)]
+
+
+def draw_single_panel(
+    series: dict,
+    groups: dict,
+    sharpes: dict,
+    out_path: Path,
+    title: str,
+) -> Path:
+    """All variant pnl curves on one axes, colour-coded by check group."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    baseline = next(v for v in variants if v.group == "original")
-    base_eq = (1 + baseline.pnl.fillna(0.0)).cumprod()
-    groups = [g for g in ("subuniverse", "cap", "transform", "decay", "window") if any(v.group == g for v in variants)]
-    ncols = 2
-    nrows = max(1, int(np.ceil(len(groups) / ncols)))
-    fig, axes = plt.subplots(nrows, ncols, figsize=(12.5, 3.6 * nrows), sharex=True, squeeze=False)
+    fig, ax = plt.subplots(figsize=(12.5, 7.0))
+    order = ["original", "subuniverse", "cap", "transform", "decay", "window"]
+    counts = {group: sum(1 for g in groups.values() if g == group) for group in order}
+    used = {group: 0 for group in order}
 
-    palette = ["#1f77b4", "#d62728", "#2ca02c", "#9467bd", "#ff7f0e", "#8c564b", "#17becf", "#7f7f7f"]
+    for name, pnl in series.items():
+        group = groups.get(name, "original")
+        if group == "original":
+            color, width, style = GROUP_STYLE["original"]
+            zorder = 5
+        else:
+            idx = used[group]
+            used[group] += 1
+            color = _group_colors(group, counts[group])[idx]
+            _, width, style = GROUP_STYLE.get(group, ("#7f7f7f", 1.0, "-"))
+            zorder = 3
 
-    for ax, group in zip(axes.ravel(), groups):
-        ax.plot(base_eq.index, base_eq.values, color="black", linewidth=1.8, label="original")
-        for i, variant in enumerate(v for v in variants if v.group == group):
-            if variant.pnl.empty:
-                continue
-            eq = (1 + variant.pnl.fillna(0.0)).cumprod()
-            sharpe = variant.metrics.get("sharpe")
-            ax.plot(
-                eq.index,
-                eq.values,
-                linewidth=0.9,
-                alpha=0.85,
-                color=palette[i % len(palette)],
-                label=f"{variant.name} (S={sharpe:.2f})" if isinstance(sharpe, (int, float)) and np.isfinite(sharpe) else variant.name,
-            )
-        ax.set_title(group, fontsize=10)
-        ax.grid(alpha=0.25)
-        ax.legend(fontsize=6.5, loc="best", frameon=False)
-    for ax in axes.ravel()[len(groups):]:
-        ax.axis("off")
+        equity = (1 + pd.Series(pnl).fillna(0.0)).cumprod()
+        sharpe = sharpes.get(name)
+        label = f"{name} (S={sharpe:.2f})" if isinstance(sharpe, (int, float)) and np.isfinite(sharpe) else name
+        ax.plot(equity.index, equity.values, color=color, linewidth=width, linestyle=style, alpha=0.9, label=label, zorder=zorder)
 
-    fig.suptitle(title, fontsize=9.5)
+    ax.set_ylabel("growth of 1 (1x gross)")
+    ax.grid(alpha=0.25)
+    ax.set_title(title, fontsize=9)
+    ax.legend(fontsize=6.2, loc="upper left", ncol=2, frameon=False)
     fig.tight_layout()
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_name(out_path.name + ".tmp.png")
     fig.savefig(tmp, dpi=130, bbox_inches="tight")
@@ -234,6 +261,33 @@ def _draw(variants: list[Variant], out_path: Path, title: str) -> Path:
         except OSError:
             time.sleep(0.4)
     raise OSError(f"could not replace {out_path}")
+
+
+def replot_folder(folder: str | Path) -> Path:
+    """Redraw one factor's stability figure from its saved pnl_daily.csv."""
+    folder = Path(folder)
+    daily = folder / "pnl_daily.csv"
+    metrics = folder / "metrics.csv"
+    if not daily.exists() or not metrics.exists():
+        raise FileNotFoundError(f"{folder} has no pnl_daily.csv / metrics.csv")
+    frame = pd.read_csv(daily, index_col=0, parse_dates=True)
+    table = pd.read_csv(metrics)
+    groups = dict(zip(table["variant"], table["group"]))
+    sharpes = dict(zip(table["variant"], table["sharpe"]))
+    title = folder.name.replace("__", " | ")
+    return draw_single_panel(
+        {name: frame[name] for name in frame.columns}, groups, sharpes, folder / "pnl.png", title
+    )
+
+
+def replot_all(root: str | Path = STABILITY_DIR) -> int:
+    root = Path(root)
+    drawn = 0
+    for folder in sorted(p for p in root.iterdir() if p.is_dir()):
+        if (folder / "pnl_daily.csv").exists():
+            replot_folder(folder)
+            drawn += 1
+    return drawn
 
 
 def run_stability(
@@ -268,7 +322,13 @@ def run_stability(
     )
     pnl_frame.to_csv(out / "pnl_daily.csv", index_label="date")
 
-    _draw(variants, out / "pnl.png", f"{attempt['hypothesis']} | {winning_expression(attempt)}")
+    draw_single_panel(
+        {variant.name: variant.pnl for variant in variants if not variant.pnl.empty},
+        {variant.name: variant.group for variant in variants},
+        {variant.name: variant.metrics.get("sharpe") for variant in variants},
+        out / "pnl.png",
+        f"{attempt['hypothesis']} | {winning_expression(attempt)}",
+    )
 
     baseline_cfg = baseline_settings(attempt)
     lines = [
@@ -355,17 +415,25 @@ def build_index(root: str | Path = STABILITY_DIR) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run", required=True)
+    parser.add_argument("--run", default=None)
     parser.add_argument("--hypothesis", default=None)
     parser.add_argument("--all", action="store_true", help="every completed attempt of the run")
     parser.add_argument("--data", default=str(PROJECT_ROOT / "data" / "processed" / "panel"))
     parser.add_argument("--out", default=None)
     parser.add_argument("--index", action="store_true", help="rebuild the summary table only")
+    parser.add_argument("--replot", action="store_true", help="redraw pngs from saved pnl_daily.csv")
     args = parser.parse_args()
 
     if args.index:
         print(build_index())
         return
+
+    if args.replot:
+        print(f"redrew {replot_all()} stability figures")
+        return
+
+    if not args.run:
+        parser.error("--run is required unless --index/--replot is used")
 
     from .data import load_processed
 

@@ -68,6 +68,26 @@ class TestStability(unittest.TestCase):
         self.assertIn("decay=20", names)
         self.assertIn("window[0]=60", names)
 
+    def test_single_panel_figure(self):
+        import pandas as pd
+        from PIL import Image
+        from factorlab.stability import draw_single_panel
+
+        idx = pd.bdate_range("2020-01-01", periods=200)
+        series = {
+            "original": pd.Series(0.001, index=idx),
+            "transform=sign": pd.Series(0.0005, index=idx),
+            "window[0]=60": pd.Series(-0.0002, index=idx),
+        }
+        groups = {"original": "original", "transform=sign": "transform", "window[0]=60": "window"}
+        sharpes = {"original": 1.0, "transform=sign": 0.6, "window[0]=60": -0.2}
+        with tempfile.TemporaryDirectory() as tmp:
+            out = draw_single_panel(series, groups, sharpes, Path(tmp) / "pnl.png", "demo")
+            self.assertTrue(out.exists())
+            with Image.open(out) as image:
+                width, height = image.size
+            self.assertGreater(width, height)  # one wide panel, not a stack
+
     def test_run_stability_writes_artifacts(self):
         panel = make_panel()
         with tempfile.TemporaryDirectory() as tmp:
