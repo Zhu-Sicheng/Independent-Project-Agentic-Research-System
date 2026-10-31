@@ -62,23 +62,29 @@ Source of the time-series list: `ts_operators.md` (2026-10), 35 operators.
 | `ts_sum` | `(x, d)` | rolling sum |
 | `ts_zscore` | `(x, d)` | `(x - mean) / std`, zero std → 0 |
 
-Reference alignment: the 35 time-series operators follow the reference
-implementation in [`ts_operators.md`](ts_operators.md) for the overlapping set.
-Operators we added ourselves (the non-time-series set above) keep our own
-semantics. A machine-readable snapshot is exported by
-`python -m factorlab.expr.catalog --out operators.json` (with a stable
-fingerprint for downstream agents).
+Reference alignment: the overlapping time-series operators follow the
+**vetted implementation** in `factorlab/agents/research/operators.py` (supplied
+by XY-creator), not the helper code in the markdown. That registry enables 23 of
+the 35 documented operators; our implementations of those 23 match it bit for
+bit (values and NaN pattern), and `tests/test_operator_reference.py` pins the
+parity. The 12 operators the vetted registry leaves disabled (e.g. `ts_rank`,
+`ts_quantile`, `ts_arg_max`) keep our semantics. Non-time-series operators are
+ours.
 
 Implementation notes:
 
-- simple reductions (`ts_mean`, `ts_sum`, `ts_min`, `ts_max`, `ts_median`) use
-  `min_periods=1`, as in the reference: partial warm-up windows are defined.
-- `ts_std_dev` uses `min_periods=2, ddof=0`; `ts_ema` uses `max(1, d//5)`;
-  `ts_percentage`, `ts_count_nans`, `ts_positive_ratio` also fill partial
-  windows (`min_periods=1`).
-- `ts_ir` maps a dispersion below `1e-10` to NaN; `ts_zscore` maps it to 0.
+- every rolling window requires a **full valid window**
+  (`min_periods=d`), deliberately stricter than the partial windows in the
+  markdown; warm-up rows stay missing.
+- `ts_ema` uses `span=d, adjust=False, min_periods=d` and masks incomplete
+  spans; `ts_std_dev` / `ts_zscore` / `ts_ir` need at least two observations.
+- division uses the reference `safe_div`: near-zero denominators become NaN
+  (`ts_ir` at `1e-10`, `ts_zscore` at `1e-14`, `ts_scale` at `1e-10`,
+  `ts_returns` at `1e-12`). `ts_zscore` returns 0 for zero dispersion.
 - `ts_rank` without `constant=1` returns a count, not a percentile.
 - string literals are supported for mode arguments: `ts_quantile(x, 20, "uniform")`.
+- a machine-readable snapshot is exported by
+  `python -m factorlab.expr.catalog --out operators.json` (stable fingerprint).
 - `ts_arg_max` / `ts_arg_min` return **days since** the extreme (BRAIN
   convention), not a normalised position.
 

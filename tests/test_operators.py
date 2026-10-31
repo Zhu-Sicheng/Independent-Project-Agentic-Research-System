@@ -81,7 +81,7 @@ class TestApprovedSemantics(unittest.TestCase):
 
     def test_std_dev_matches_pandas(self):
         out = evaluate_text("ts_std_dev(close, 10)", self.panel)
-        ref = self.panel.field("close").rolling(10, min_periods=2).std(ddof=0)
+        ref = self.panel.field("close").rolling(10, min_periods=10).std(ddof=0)
         self.assertLess(float((out - ref).abs().max().max()), 1e-9)
 
     def test_ts_delta_with_lag_one(self):

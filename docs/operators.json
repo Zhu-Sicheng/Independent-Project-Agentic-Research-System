@@ -1,6 +1,7 @@
 {
   "schema_version": "1.0",
   "source": "factorlab.expr.ops",
+  "implementation_sha256": "sha256:cffcbe572efac74f9679eb6cf43721c14d5da285af95a697f76da67896179e34",
   "approved": [
     "abs",
     "clip",
@@ -1319,6 +1320,6 @@
       "approved": true
     }
   ],
-  "fingerprint": "sha256:f9b62a77c1f87206274a8d32707eef47315e824224cac8e3cfb5bb165050e610",
-  "generated_at_utc": "2026-10-31T09:24:53.557180+00:00"
+  "fingerprint": "sha256:53c2dd24655a4d51cd7fc49771653629de4c1142f89649d725736ea24a48c116",
+  "generated_at_utc": "2026-10-31T09:29:58.486554+00:00"
 }

@@ -25,6 +25,15 @@ from ..config import ALLOWED_WINDOWS
 from . import ops
 from .approved import APPROVED_OPERATORS, APPROVED_SET
 
+_OPS_PATH = Path(ops.__file__)
+
+
+def implementation_sha256() -> str:
+    """Hash of the operator implementation module (invalidates stale caches)."""
+    import hashlib as _hashlib
+
+    return "sha256:" + _hashlib.sha256(_OPS_PATH.read_bytes()).hexdigest()
+
 SCHEMA_VERSION = "1.0"
 
 
@@ -54,6 +63,7 @@ def build_catalog(approved_only: bool = False) -> dict:
     payload = {
         "schema_version": SCHEMA_VERSION,
         "source": "factorlab.expr.ops",
+        "implementation_sha256": implementation_sha256(),
         "approved": sorted(APPROVED_SET) if not approved_only else names,
         "window_policy": {
             "allowed": list(ALLOWED_WINDOWS),
@@ -70,6 +80,7 @@ def fingerprint(payload: dict) -> str:
     """SHA-256 over the semantic content (stable across runs and platforms)."""
     core = {
         "schema_version": payload.get("schema_version"),
+        "implementation_sha256": payload.get("implementation_sha256"),
         "approved": payload.get("approved"),
         "operators": payload.get("operators"),
         "window_policy": payload.get("window_policy"),

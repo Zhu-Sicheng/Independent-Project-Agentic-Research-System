@@ -16,6 +16,9 @@ from factorlab.data.panel import PanelStore
 from factorlab.expr import evaluate_text
 from factorlab.expr.catalog import build_catalog, fingerprint, write_catalog
 from factorlab.expr.ops import REGISTRY
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "factorlab" / "agents"))
 
 
 def make_panel(days: int = 60, names: int = 3, seed: int = 2) -> PanelStore:
@@ -50,7 +53,7 @@ class TestReferenceAlignment(unittest.TestCase):
         self.panel = make_panel()
         self.close = self.panel.field("close")
 
-    def test_simple_reductions_use_min_periods_one(self):
+    def test_simple_reductions_require_a_full_window(self):
         cases = {
             "ts_mean": "mean",
             "ts_sum": "sum",
@@ -60,18 +63,22 @@ class TestReferenceAlignment(unittest.TestCase):
         }
         for operator, method in cases.items():
             out = evaluate_text(f"{operator}(close, 10)", self.panel)
-            ref = getattr(self.close.rolling(10, min_periods=1), method)()
+            ref = getattr(self.close.rolling(10, min_periods=10), method)()
             self.assertLess(
                 float((out - ref).abs().max().max()), 1e-9, operator
             )
-            # the reference fills the warm-up rows as soon as one value exists
-            self.assertTrue(pd.notna(out.iloc[0]).all(), operator)
+            # the vetted registry is deliberately stricter than the source doc:
+            # partial warm-up windows stay missing
+            self.assertTrue(pd.isna(out.iloc[0]).all(), operator)
+            self.assertTrue(pd.isna(out.iloc[8]).all(), operator)
+            self.assertTrue(pd.notna(out.iloc[9]).all(), operator)
 
-    def test_std_dev_is_ddof_zero_min_periods_two(self):
+    def test_std_dev_is_ddof_zero_full_window(self):
         out = evaluate_text("ts_std_dev(close, 10)", self.panel)
-        ref = self.close.rolling(10, min_periods=2).std(ddof=0)
+        ref = self.close.rolling(10, min_periods=10).std(ddof=0)
         self.assertLess(float((out - ref).abs().max().max()), 1e-9)
-        self.assertTrue(pd.isna(out.iloc[0]).all())
+        self.assertTrue(pd.isna(out.iloc[8]).all())
+        self.assertTrue(pd.notna(out.iloc[9]).all())
 
     def test_ir_is_nan_for_zero_dispersion(self):
         flat = pd.DataFrame(
@@ -95,6 +102,13 @@ class TestReferenceAlignment(unittest.TestCase):
         ref = self.close / self.close.shift(5) - 1.0
         self.assertLess(float((out - ref).abs().max().max()), 1e-9)
 
+    def test_ts_returns_masks_near_zero_denominators(self):
+        dates = pd.bdate_range("2021-01-01", periods=8)
+        values = pd.DataFrame({"A": [1.0, 2.0, 0.0, 4.0, 5.0, 6.0, 7.0, 8.0]}, index=dates)
+        panel = PanelStore.from_dict({"close": values})
+        out = REGISTRY["ts_returns"].func(values, 2)
+        self.assertTrue(pd.isna(out["A"].iloc[4]))  # denominator was zero
+
     def test_ts_quantile_default_driver(self):
         implicit = evaluate_text("ts_quantile(close, 20)", self.panel)
         explicit = evaluate_text('ts_quantile(close, 20, "gaussian")', self.panel)
@@ -107,13 +121,62 @@ class TestReferenceAlignment(unittest.TestCase):
 
     def test_bollinger_bands_use_the_same_mean(self):
         out = evaluate_text("ts_bollinger_percent(close, 20)", self.panel)
-        ma = self.close.rolling(20, min_periods=1).mean()
-        sd = self.close.rolling(20, min_periods=2).std(ddof=0)
+        ma = self.close.rolling(20, min_periods=20).mean()
+        sd = self.close.rolling(20, min_periods=20).std(ddof=0)
         upper = ma + 2.0 * sd
         lower = ma - 2.0 * sd
         ref = (self.close - lower) / (upper - lower)
         diff = (out - ref).abs().max().max()
         self.assertLess(float(diff), 1e-9)
+
+
+class TestVettedRegistryParity(unittest.TestCase):
+    """Every operator his vetted registry implements must match bit for bit."""
+
+    EXTRA = {
+        "ts_returns": 1, "ts_scale": 0.0, "ts_min_max_diff": 0.5,
+        "ts_percentage": 0.5, "ts_bollinger_percent": 2.0,
+        "ts_bollinger_position": 2.0, "ts_bollinger_width": 2.0,
+    }
+
+    def _registry(self):
+        try:
+            from research.operators import OperatorRegistry
+            from pathlib import Path as _Path
+        except ImportError:  # pragma: no cover - research package optional
+            self.skipTest("research package not available")
+        return OperatorRegistry(_Path(__file__).resolve().parents[1] / "docs" / "ts_operators.md")
+
+    def test_parity_with_reference_registry(self):
+        registry = self._registry()
+        rng = np.random.default_rng(11)
+        dates = pd.bdate_range("2020-01-01", periods=80)
+        x = pd.DataFrame(rng.normal(10, 2, (80, 4)), index=dates, columns=list("ABCD"))
+        x.iloc[3:5, 0] = np.nan
+        x.iloc[10:13, 1] = np.nan
+        x.iloc[20, 2] = 0.0
+        x.iloc[25:36, 3] = 5.0
+        self.assertTrue(registry.enabled)
+        for name in sorted(registry.enabled):
+            extra = [self.EXTRA[name]] if name in self.EXTRA else []
+            theirs = registry.apply(name, [x, 20] + extra)
+            ours = REGISTRY[name].func(x, 20, *extra)
+            self.assertEqual(
+                np.isnan(theirs.to_numpy(dtype=float)).tolist(),
+                np.isnan(ours.to_numpy(dtype=float)).tolist(),
+                f"{name}: NaN pattern differs",
+            )
+            finite = np.isfinite(theirs.to_numpy(dtype=float)) & np.isfinite(
+                ours.to_numpy(dtype=float)
+            )
+            if finite.any():
+                diff = float(
+                    np.abs(
+                        theirs.to_numpy(dtype=float)[finite]
+                        - ours.to_numpy(dtype=float)[finite]
+                    ).max()
+                )
+                self.assertLess(diff, 1e-12, f"{name}: values differ")
 
 
 class TestCatalog(unittest.TestCase):
@@ -136,6 +199,7 @@ class TestCatalog(unittest.TestCase):
         first = build_catalog()
         second = build_catalog()
         self.assertEqual(first["fingerprint"], second["fingerprint"])
+        self.assertIn("implementation_sha256", first)
         self.assertEqual(first["fingerprint"], fingerprint(first))
         tampered = json.loads(json.dumps(first))
         tampered["operators"][0]["doc"] = "changed"

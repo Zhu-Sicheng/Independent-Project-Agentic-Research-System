@@ -242,8 +242,9 @@ if_else(rank(cap) > 0.3, -ts_mean(returns, 20), nan)
 
 #### 4.2 Approved operators (the only ones Agent 2.2 may use)
 
-The 35 time-series operators follow `ts_operators.md` (implementation aligned
-with the reference, see [`docs/ts_operators.md`](docs/ts_operators.md)):
+The 35 time-series operators follow `ts_operators.md`; implementations of the
+23 the collaborator's vetted registry enables match it bit for bit
+([`docs/operators.md`](docs/operators.md)):
 
 | family | operators |
 |---|---|
@@ -267,12 +268,14 @@ The whitelist lives in `factorlab/expr/approved.py`; adding an operator is two
 steps (register it in `ops.py`, append it to `TS_OPERATORS`). Passing
 `strict_operators=False` relaxes the rule for one call.
 
-For the overlapping set the implementations follow the reference in
-[`docs/ts_operators.md`](docs/ts_operators.md) (simple reductions use
-`min_periods=1`, `ts_ir` → NaN and `ts_zscore` → 0 for zero dispersion, string
-mode arguments such as `ts_quantile(x, 20, "uniform")` are supported). The
-non-time-series operators above are ours. A machine-readable catalog with a
-stable fingerprint is exported for the agent pipeline:
+For the overlapping set the implementations follow the **vetted**
+`research/operators.py` registry supplied by the collaborator (full valid
+windows, reference `safe_div`, `ts_ir` → NaN and `ts_zscore` → 0 for zero
+dispersion; parity is pinned by a differential test). The 12 operators that
+registry leaves disabled keep our semantics, as do the non-time-series
+operators above. String mode arguments such as `ts_quantile(x, 20, "uniform")`
+are supported. A machine-readable catalog with a stable fingerprint is exported
+for the agent pipeline:
 
 ```powershell
 python -m factorlab.expr.catalog --out operators.json [--approved-only]

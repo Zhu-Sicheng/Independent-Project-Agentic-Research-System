@@ -153,11 +153,26 @@ def _ts_apply(x, d, method: str):
     return getattr(x.rolling(d, min_periods=_minp(d)), method)()
 
 
-def _ts_roll(x, d, method: str, min_periods: int = 1):
-    """Simple window reduction; ``min_periods=1`` matches ts_operators.md."""
+def _ts_roll(x, d, method: Optional[str] = None, min_periods: Optional[int] = None):
+    """Rolling view / reduction with the reference policy: a full valid window.
+
+    The vetted implementation in ``factorlab/agents/research/operators.py`` uses
+    ``rolling(d, min_periods=d)`` -- deliberately stricter than the partial
+    windows in the source document. ``method=None`` returns the rolling object.
+    """
     if not _is_df(x):
         return x
-    return getattr(x.rolling(int(d), min_periods=min_periods), method)()
+    d = int(d)
+    mp = d if min_periods is None else int(min_periods)
+    roll = x.rolling(d, min_periods=mp)
+    return roll if method is None else getattr(roll, method)()
+
+
+def _safe_div(left, right, epsilon: float = 1e-12):
+    """Division that masks near-zero denominators (reference ``safe_div``)."""
+    if isinstance(right, (int, float)):
+        return left / right if abs(right) > epsilon else left * np.nan
+    return left / right.where(right.abs() > epsilon)
 
 
 def _delay(x, d):
@@ -273,11 +288,11 @@ def _ts_rank(x, d):
 
 
 def _ts_ir(x, d):
+    if not _is_df(x):
+        return x
     mean = _ts_roll(x, d, "mean")
-    std = x.rolling(int(d), min_periods=2).std(ddof=0) if _is_df(x) else x
-    if _is_df(std):
-        std = std.mask(std < 1e-10)
-    return mean / std
+    std = x.rolling(int(d), min_periods=int(d)).std(ddof=0)
+    return _safe_div(mean, std, epsilon=1e-10)
 
 
 # --------------------------------------------------------------------------- #
@@ -424,10 +439,10 @@ register("ts_rank", "time-series", [X, W], "percentile rank of today's value in 
 def _ts_zscore(x, d):
     if not _is_df(x):
         return x
-    mean = _ts_roll(x, d, "mean")
-    std = x.rolling(int(d), min_periods=2).std(ddof=0)
-    zero = (std < 1e-14) & std.notna()
-    return ((x - mean) / std).mask(zero, 0.0)
+    roll = x.rolling(int(d), min_periods=int(d))
+    mean, std = roll.mean(), roll.std(ddof=0)
+    res = _safe_div(x - mean, std, epsilon=1e-14)
+    return res.mask((std.abs() < 1e-14) & std.notna(), 0.0)
 
 
 register("ts_zscore", "time-series", [X, W], "(x - ts_mean) / ts_std", 2, 2)(_ts_zscore)
@@ -485,30 +500,30 @@ def _window_reduce(x, d, fn, min_periods=1):
 def _ts_std_dev(x, d):
     if not _is_df(x):
         return x
-    return x.rolling(int(d), min_periods=2).std(ddof=0)
+    return x.rolling(int(d), min_periods=int(d)).std(ddof=0)
 
 
 def _ts_ema(x, d):
     if not _is_df(x):
         return x
     d = int(d)
-    return x.ewm(span=d, adjust=False, min_periods=max(1, d // 5)).mean()
+    full = x.rolling(d, min_periods=d).count() == d
+    return x.ewm(span=d, adjust=False, min_periods=d).mean().where(full)
 
 
 def _ts_percentage(x, d, percentage=0.5):
     if not _is_df(x):
         return x
-    return x.rolling(int(d), min_periods=1).quantile(float(percentage))
+    return x.rolling(int(d), min_periods=int(d)).quantile(float(percentage))
 
 
 def _ts_scale(x, d, constant=0.0):
     if not _is_df(x):
         return x
     d = int(d)
-    rmin = x.rolling(d, min_periods=1).min()
-    rmax = x.rolling(d, min_periods=1).max()
-    diff = rmax - rmin
-    return ((x - rmin) / diff + float(constant)).where(diff > 1e-10)
+    roll = x.rolling(d, min_periods=d)
+    rmin, rmax = roll.min(), roll.max()
+    return _safe_div(x - rmin, rmax - rmin, epsilon=1e-10) + float(constant)
 
 
 def _ts_rank_spec(x, d, constant=0.0):
@@ -622,21 +637,21 @@ def _ts_positive_ratio(x, d):
 def _ts_count_nans(x, d):
     if not _is_df(x):
         return x
-    return x.isna().rolling(int(d), min_periods=1).sum()
+    return x.isna().astype(float).rolling(int(d), min_periods=int(d)).sum()
 
 
 def _ts_bollinger(x, d, k):
-    ma = _ts_roll(x, d, "mean")
-    sd = _ts_std_dev(x, d)
-    upper = ma + float(k) * sd
-    lower = ma - float(k) * sd
-    return ma, sd, upper, lower
+    roll = _ts_roll(x, d)
+    ma, sd = roll.mean(), roll.std(ddof=0)
+    return ma, sd
 
 
 def _ts_bollinger_percent(x, d, k=2.0):
-    ma, sd, upper, lower = _ts_bollinger(x, d, k)
-    diff = upper - lower
-    return ((x - lower) / diff).where(diff.abs() > 0)
+    if not _is_df(x):
+        return x
+    ma, sd = _ts_bollinger(x, d, k)
+    k = float(k)
+    return _safe_div(x - (ma - k * sd), 2.0 * k * sd)
 
 
 def _ts_bollinger_position(x, d, k=2.0):
@@ -645,9 +660,10 @@ def _ts_bollinger_position(x, d, k=2.0):
 
 
 def _ts_bollinger_width(x, d, k=2.0):
-    ma, sd, upper, lower = _ts_bollinger(x, d, k)
-    denom = ma.abs().where(ma.abs() > 1e-12)
-    return 2.0 * float(k) * sd / denom
+    if not _is_df(x):
+        return x
+    ma, sd = _ts_bollinger(x, d, k)
+    return _safe_div(2.0 * float(k) * sd, ma.abs(), epsilon=1e-12)
 
 
 def _ts_max_diff(x, d):
@@ -667,14 +683,14 @@ def _ts_range(x, d):
 
 
 def _ts_extreme_ratio(x, d):
-    denom = _ts_roll(x, d, "min")
-    denom = denom.where(denom.abs() > 1e-12)
-    return _ts_roll(x, d, "max") / denom
+    return _safe_div(_ts_roll(x, d, "max"), _ts_roll(x, d, "min"), epsilon=1e-12)
 
 
 def _ts_returns_spec(x, d, mode=1.0):
-    shifted = x.shift(int(d)) if _is_df(x) else x
-    res = (x - shifted) / shifted
+    if not _is_df(x):
+        return x
+    shifted = x.shift(int(d))
+    res = _safe_div(x - shifted, shifted, epsilon=1e-12)
     if float(mode) == 0:
         res = res * 100
     return res
