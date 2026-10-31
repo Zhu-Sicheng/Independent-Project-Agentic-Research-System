@@ -966,13 +966,6 @@ def run_pipeline(
         except Exception as exc:  # pragma: no cover - defensive
             record["pool_error"] = f"{type(exc).__name__}: {exc}"
 
-    public_records = [
-        _json_safe({key: value for key, value in record.items() if not key.startswith("_")})
-        for record in records
-    ]
-    (output_root / "evaluations.json").write_text(
-        json.dumps(public_records, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
-    )
     summary = {
         "run_id": run_id,
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),

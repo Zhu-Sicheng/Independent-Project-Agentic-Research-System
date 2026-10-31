@@ -642,13 +642,30 @@ In LLM mode the per-agent caps (`--llm-max-turns`, `--llm-tool-calls`,
 whole conversation each turn, so the token budget is the number that stops a run
 first (his Azure-era 60k default was raised).
 
-Backtest results are incremental: re-running the same `--run-id` resumes the
-existing `evaluations.json`, skips expressions that are already known, evaluates
-only the new ones, and re-draws only missing display figures (`--no-incremental`
-recomputes everything, `--force` re-evaluates known expressions). Every run also
-appends its evaluation rows to `experiments/xy/results.jsonl` (append-only,
-idempotent per run/expression) so the result history can be consumed without
-re-reading a whole run.
+Backtest results are incremental. Re-running the same `--run-id` resumes the
+existing `evaluations.json`, skips known expressions, evaluates only the new
+ones and re-draws only missing figures (`--no-incremental` recomputes,
+`--force` re-evaluates known expressions). Records are keyed by their canonical
+expression and written through an upsert: re-evaluating a factor updates the
+record and bumps its `revision` instead of creating a duplicate. The shared
+result layer under `experiments/xy/` is:
+
+| file | role |
+|---|---|
+| `results_events.jsonl` | append-only event log (evaluated/updated) |
+| `results_index.json` | materialised latest state per run/expression |
+| `results.csv` | flat table of the same index |
+
+Publish a run (or several merged) for sharing and git:
+
+```powershell
+python -m factorlab.xy_results --rebuild-index
+python -m factorlab.xy_results --publish sysv1-h1 --top 10
+python -m factorlab.xy_results --publish-combined systemv1-50h     --runs sysv1-h1,sysv1-h2,sysv1-h3 --top 15
+```
+
+`experiments/published/<name>/` then holds `summary.csv`, the run report, the
+top display figures and an IS-vs-OOS overview chart.
 
 Outputs go to `experiments/xy/<run_id>/` (gitignored): `agent1|2|3_round*/`
 artifacts, `research_memory.sqlite3` (feedback records), `display/<expr_id>/`
@@ -1245,10 +1262,27 @@ LLM 模式下每个 agent 的 `--llm-max-turns` / `--llm-tool-calls` / `--llm-to
 再叠一层 API 预算上限；chat completion 每轮都会重发上下文，token 预算通常最先触顶
 （他 Azure 时代的 60k 默认已上调）。
 
-回测结果支持增量更新：用同一个 `--run-id` 重跑时会恢复已有 `evaluations.json`，跳过已知
-表达式、只评估新增的，并只补画缺失的展示图（`--no-incremental` 全部重算，`--force` 重新
-评估已知表达式）。每次运行还会把评估行追加到 `experiments/xy/results.jsonl`（append-only，
-按 run/表达式幂等），便于累积读取历史结果。
+回测结果支持增量更新与增量修改：用同一个 `--run-id` 重跑会恢复已有 `evaluations.json`，
+跳过已知表达式、只评估新增的，并只补画缺失的展示图（`--no-incremental` 全部重算，
+`--force` 重新评估已知表达式）。记录以 canonical 表达式为主键做 upsert：重新评估同一因子
+会更新记录并把 `revision` 加一，而不是产生重复记录。共享结果层在 `experiments/xy/`：
+
+| 文件 | 作用 |
+|---|---|
+| `results_events.jsonl` | append-only 事件日志（评估 / 更新） |
+| `results_index.json` | 以 run/表达式为键的物化最新状态 |
+| `results.csv` | 同一份索引的扁平表 |
+
+发布单次或合并多次运行（用于分享与提交 git）：
+
+```powershell
+python -m factorlab.xy_results --rebuild-index
+python -m factorlab.xy_results --publish sysv1-h1 --top 10
+python -m factorlab.xy_results --publish-combined systemv1-50h     --runs sysv1-h1,sysv1-h2,sysv1-h3 --top 15
+```
+
+`experiments/published/<name>/` 内含 `summary.csv`、运行报告、排名靠前的展示图，以及
+IS-vs-OOS 总览图。
 
 结果写到 `experiments/xy/<run_id>/`（已 gitignore）：`agent1|2|3_round*/` 产物、
 `research_memory.sqlite3`（反馈记录）、`display/<expr_id>/`（OOS/holdout 图 + 全样本
