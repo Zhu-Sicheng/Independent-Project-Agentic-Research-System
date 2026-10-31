@@ -13,6 +13,7 @@ runs/
 pool/
 experiments/plots/
 experiments/stability/*/pnl_daily.csv
+experiments/xy/
 tests/_tmp/
 
 # research inputs / reports (keep the code repo small)

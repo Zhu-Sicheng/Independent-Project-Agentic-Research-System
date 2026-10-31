@@ -59,6 +59,7 @@ def validate_expression(
     max_ops: int = 40,
     max_length: int = 800,
     approved_only: bool = True,
+    min_window: int = 2,
 ) -> ValidationReport:
     report = ValidationReport(text=text)
     if not text or not text.strip():
@@ -102,9 +103,9 @@ def validate_expression(
                     report.add_error(
                         f"{node.name}: window argument must be a literal integer"
                     )
-                elif int(arg.value) != arg.value or int(arg.value) < 2:
+                elif int(arg.value) != arg.value or int(arg.value) < min_window:
                     report.add_error(
-                        f"{node.name}: window {arg.value} must be an integer >= 2"
+                        f"{node.name}: window {arg.value} must be an integer >= {min_window}"
                     )
             for idx in op.lag_positions():
                 if idx >= len(node.args):

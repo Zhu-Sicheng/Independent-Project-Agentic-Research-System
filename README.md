@@ -601,6 +601,40 @@ baseline and every check on a single axes (colour-coded by check group),
 plus `metrics.csv`, `meta.json` (expression + baseline config) and `README.md`. They never overwrite the
 batch figures or the single-run view.
 
+#### Merged pipeline: collaborator agents + our evaluation
+
+The three research agents (`factorlab/agents/agent1|agent2|agent3` plus the shared
+`research` package) can drive a complete run, with everything after the
+expression produced by our stack:
+
+```
+Agent 1  raw data -> EDA -> data contract
+Agent 2  contract -> natural-language hypotheses (ideas.json)
+Agent 3  ideas -> constrained expressions + numerical preview (expressions.json)
+   |  field translation: Adj_Close -> close, Adj_Volume -> volume, ...
+   v
+ours: GridSearch (decay / transform / cap filter / windows, IS selection)
+      + stability battery (subuniverse / cap / transform / decay / windows)
+      + reviewer (accept / optimize / abandon) + factor pool
+```
+
+```powershell
+python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16
+python -m factorlab.xy_pipeline --mode llm --max-files 40          # AGENTn_* env vars
+```
+
+Outputs go to `experiments/xy/<run_id>/` (gitignored): `agent1|2|3/` artifacts,
+`stability/<expression_id>/` figures, `evaluations.json`, `run.json`,
+`report.md`. The translator also accepts Agent-3 lookbacks outside our grid
+horizons (`ts_returns(x, 1)`); the grid still only substitutes the configured
+window set.
+
+Notes for this first local run: Agent 1 was given a 40-files-per-dataset budget,
+so its contract marks fields as `candidate_requires_confirmation` and Agent 3
+returns expressions with status `research_validated_requires_metadata`; the
+pipeline evaluates those as research candidates and records the metadata
+blockers instead of silently promoting the fields.
+
 ### 9. Known limitations / next steps
 
 1. **Only price/volume**: no sector, size neutralisation or fundamentals;
@@ -1145,6 +1179,36 @@ window 的 Sharpe 区间、`min_pnl_corr`、`flags`）交给 Agent 3；评审规
 结果写到 `experiments/stability/<run_id>__<factor>/`（`pnl.png` 把原配置与所有检验曲线画在
 同一张图上、按检验组用颜色区分，另有 `metrics.csv`、`meta.json`（表达式与基线配置）、
 `README.md`），**不覆盖**批次图与单次 run 的图。
+
+#### 合并流水线：对方的三段 agent + 我们的评估
+
+三个研究 agent（`factorlab/agents/agent1|agent2|agent3` 与共享的 `research` 包）负责
+数据理解 → 自然语言假设 → 约束表达式，表达式之后全部走我们的栈：
+
+```
+Agent 1 原始数据 -> EDA -> 数据契约
+Agent 2 契约 -> 假设（ideas.json）
+Agent 3 假设 -> 表达式 + 数值预览（expressions.json）
+   |  字段翻译：Adj_Close -> close、Adj_Volume -> volume ...
+   v
+我们的：GridSearch（decay / transform / cap / 窗口，IS 选优）
+       + 稳定性检验（子全集 / cap / transform / decay / 窗口）
+       + 评审（accept / optimize / abandon）+ 因子池
+```
+
+```powershell
+python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16
+python -m factorlab.xy_pipeline --mode llm --max-files 40          # 需要 AGENTn_* 环境变量
+```
+
+结果写到 `experiments/xy/<run_id>/`（已 gitignore）：`agent1|2|3/` 产物、
+`stability/<expression_id>/` 图、`evaluations.json`、`run.json`、`report.md`。
+翻译层接受对方的任意 lookback（如 `ts_returns(x, 1)`），网格仍只替换我们配置的窗口集。
+
+首次本地说明：Agent 1 只给了每数据集 40 个文件的预算，因此字段契约标记为
+`candidate_requires_confirmation`、Agent 3 输出状态为
+`research_validated_requires_metadata`；流水线把这些当作研究候选继续评估，并记录
+字段阻塞原因，不会静默提升为正式数据。
 
 ### 9. 已知限制 / 下一步
 
