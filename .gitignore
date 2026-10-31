@@ -11,6 +11,7 @@ venv/
 # generated artefacts (regenerate with `python -m factorlab gen-data`)
 runs/
 pool/
+experiments/plots/
 tests/_tmp/
 
 # research inputs / reports (keep the code repo small)

@@ -517,6 +517,16 @@ python -m factorlab ledger --rebuild
 python -m factorlab ledger --sort sharpe_oos --top 20
 ```
 
+Inspect one experiment (rebuilds the factor from its spec, re-runs the backtest,
+and plots equity / drawdown / yearly sharpe while printing the segment and yearly
+tables):
+
+```powershell
+python -m factorlab view                 # list the ledger
+python -m factorlab view --run 20261031-083828-e2e
+python -m factorlab view --run <run_id> --hypothesis <name> --no-plot
+```
+
 Alongside the CSV, `--rebuild` copies each run's `report.md` to
 `experiments/reports/<run_id>.md`, so the narrative conclusions (hypothesis,
 rationale, decision, per-year tables) are versioned and visible on GitHub while
@@ -1007,6 +1017,14 @@ pool.report()                      # markdown
 ```powershell
 python -m factorlab ledger --rebuild
 python -m factorlab ledger --sort sharpe_oos --top 20
+```
+
+查看单个实验（按 spec 重建因子并重跑回测，画出净值/回撤/分年 Sharpe，同时打印分段与分年统计表）：
+
+```powershell
+python -m factorlab view                 # 列出 ledger
+python -m factorlab view --run 20261031-083828-e2e
+python -m factorlab view --run <run_id> --hypothesis <name> --no-plot
 ```
 
 `--rebuild` 同时把每次 run 的 `report.md` 复制到 `experiments/reports/<run_id>.md`，

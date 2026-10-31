@@ -109,6 +109,13 @@ def build_parser() -> argparse.ArgumentParser:
     expr.add_argument("--cost-bps", type=float, default=0.0)
     expr.add_argument("--grid", action="store_true", help="grid search instead of a single run")
 
+    view = sub.add_parser("view", help="inspect one experiment (plot + tables)")
+    view.add_argument("--run", default=None, help="run id or directory; omit to list the ledger")
+    view.add_argument("--hypothesis", default=None, help="which hypothesis of that run")
+    view.add_argument("--data", default=str(PROJECT_ROOT / "data" / "processed" / "panel"))
+    view.add_argument("--no-plot", action="store_true")
+    view.add_argument("--out", default=None, help="directory for the png")
+
     ledger = sub.add_parser("ledger", help="show the aggregate experiment ledger")
     ledger.add_argument("--rebuild", action="store_true", help="rebuild from runs/")
     ledger.add_argument("--sort", default="sharpe_oos", help="column to sort by")
@@ -185,6 +192,21 @@ def cmd_expr(args) -> int:
     return 0
 
 
+def cmd_view(args) -> int:
+    from .view import view
+
+    print(
+        view(
+            args.run,
+            args.hypothesis,
+            args.data,
+            plot=not args.no_plot,
+            out_dir=Path(args.out) if args.out else None,
+        )
+    )
+    return 0
+
+
 def cmd_ledger(args) -> int:
     from .experiments import load_ledger, rebuild_ledger, render
 
@@ -211,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
         "expr": cmd_expr,
         "pool": cmd_pool,
         "ledger": cmd_ledger,
+        "view": cmd_view,
     }
     return handlers[args.command](args)
 
