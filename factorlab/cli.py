@@ -94,6 +94,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--offline", action="store_true", help="force the rule-based agents")
     run.add_argument("--no-stability", action="store_true",
                      help="skip the stability battery handed to the reviewer")
+    run.add_argument("--avoid-file", default=None,
+                     help="newline-separated hypothesis names the economist should not repeat")
     _add_split(run)
 
     build = sub.add_parser("build-data", help="build the processed panel from the raw CRSP extract")
@@ -156,6 +158,14 @@ def cmd_run(args) -> int:
         subuniverse=_subuniverse_from_args(args)
     )
     config.compute_stability = not getattr(args, "no_stability", False)
+    avoid_file = getattr(args, "avoid_file", None)
+    if avoid_file and Path(avoid_file).exists():
+        names = [
+            line.strip()
+            for line in Path(avoid_file).read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        config.avoid = tuple(dict.fromkeys(names))
     if args.offline:
         config.llm.provider = "offline"
         config.llm.model = ""

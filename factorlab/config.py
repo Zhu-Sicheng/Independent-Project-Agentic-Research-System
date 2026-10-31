@@ -275,6 +275,8 @@ class MiningConfig:
     seed: int = 7
     #: run the stability checks on the best config and hand them to the reviewer
     compute_stability: bool = True
+    #: hypothesis names the economist must not repeat (cross-session memory)
+    avoid: tuple[str, ...] = ()
 
 
 def ensure_dirs(*paths: Path) -> None:

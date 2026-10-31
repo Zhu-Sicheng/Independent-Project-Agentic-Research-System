@@ -96,7 +96,7 @@ class MiningLoop:
         hyps = hypotheses or self.hypothesis_agent.propose(
             panel_summary,
             self.pool.summary_for_agent(),
-            tried=self.tried,
+            tried=list(self.tried) + list(self.config.avoid),
         )
         self._hypotheses = {h["name"]: h for h in hyps}
         from dataclasses import asdict

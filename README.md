@@ -534,6 +534,15 @@ Alongside the CSV, `--rebuild` copies each run's `report.md` to
 rationale, decision, per-year tables) are versioned and visible on GitHub while
 the raw `runs/` directory stays local.
 
+A long batch can be driven by `factorlab.run_batch` (repeated short sessions,
+optionally several workers) and summarised with `factorlab.batch_report`, which
+reads the archived attempts and writes one table — no replay:
+
+```powershell
+python -m factorlab.run_batch --worker a --sessions 5 --hypotheses 5 --max-evals 48
+python -m factorlab.batch_report --prefix p100 --out experiments/batch100
+```
+
 For batches that must be readable end-to-end, archive the structured artifacts
 too:
 
@@ -1076,6 +1085,14 @@ python -m factorlab view --run <run_id> --hypothesis <name> --no-plot
 
 `--rebuild` 同时把每次 run 的 `report.md` 复制到 `experiments/reports/<run_id>.md`，
 于是「假设—理由—决策—分年表」这些文字结论也进 git、在 GitHub 上可见，而原始 `runs/` 仍留在本地。
+
+长批次可以用 `factorlab.run_batch` 驱动（重复多个短 session，可多进程并行），
+再用 `factorlab.batch_report` 从归档的 attempts 直接汇总成一张表（不重跑回测）：
+
+```powershell
+python -m factorlab.run_batch --worker a --sessions 5 --hypotheses 5 --max-evals 48
+python -m factorlab.batch_report --prefix p100 --out experiments/batch100
+```
 
 需要完整留档一个批次时，用归档命令：
 
