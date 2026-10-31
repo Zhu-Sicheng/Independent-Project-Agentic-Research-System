@@ -633,15 +633,22 @@ python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16
 python -m factorlab.xy_pipeline --mode offline --agent2-mode llm --agent3-mode llm     --llm-max-turns 12 --llm-tool-calls 24 --llm-token-budget 500000
 ```
 
-Feedback is bounded: `--rounds` (default 3) is the hard cap, `--patience`
-(default 1) stops the loop as soon as a round produces no better in-sample
-Sharpe, a round with no new expressions also stops, and every expression is
-deduplicated by its canonical form so the same formula cannot be re-fed
-forever. Offline mode gets exactly one reviewer-revision round. In LLM mode the
-per-agent caps (`--llm-max-turns`, `--llm-tool-calls`, `--llm-token-budget`)
-bound the API budget on top of that; chat-completion providers resend the whole
-conversation each turn, so the token budget is the number that stops a run
+Feedback is bounded by an explicit round count: `--rounds` (default 3) rounds
+are always executed -- there is no "no improvement" early stop. A round stops
+early only when Agent 3 returns no candidates at all. Every expression is
+deduplicated by its canonical form, so the same formula is never re-evaluated.
+In LLM mode the per-agent caps (`--llm-max-turns`, `--llm-tool-calls`,
+`--llm-token-budget`) bound the API budget; chat-completion providers resend the
+whole conversation each turn, so the token budget is the number that stops a run
 first (his Azure-era 60k default was raised).
+
+Backtest results are incremental: re-running the same `--run-id` resumes the
+existing `evaluations.json`, skips expressions that are already known, evaluates
+only the new ones, and re-draws only missing display figures (`--no-incremental`
+recomputes everything, `--force` re-evaluates known expressions). Every run also
+appends its evaluation rows to `experiments/xy/results.jsonl` (append-only,
+idempotent per run/expression) so the result history can be consumed without
+re-reading a whole run.
 
 Outputs go to `experiments/xy/<run_id>/` (gitignored): `agent1|2|3_round*/`
 artifacts, `research_memory.sqlite3` (feedback records), `display/<expr_id>/`
@@ -1232,11 +1239,16 @@ python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16
 python -m factorlab.xy_pipeline --mode offline --agent2-mode llm --agent3-mode llm     --llm-max-turns 12 --llm-tool-calls 24 --llm-token-budget 500000
 ```
 
-反馈有界：`--rounds`（默认 3）是硬上限，`--patience`（默认 1）在某一轮没有产生更高的
-IS Sharpe 时立刻停止；某一轮没有新表达式也会停止；每个表达式按 canonical 形式去重，
-同一公式不会被反复反馈。离线模式只有一轮评审改写。LLM 模式下每个 agent 的
-`--llm-max-turns` / `--llm-tool-calls` / `--llm-token-budget` 再叠一层 API 预算上限；
-chat completion 每轮都会重发上下文，token 预算通常最先触顶（他 Azure 时代的 60k 默认已上调）。
+反馈由显式轮数约束：`--rounds`（默认 3）一定跑满，**不做“无改进”早停**；只有 Agent 3
+一轮完全没有候选时才提前结束。每个表达式按 canonical 形式去重，同一公式不会被反复评估。
+LLM 模式下每个 agent 的 `--llm-max-turns` / `--llm-tool-calls` / `--llm-token-budget`
+再叠一层 API 预算上限；chat completion 每轮都会重发上下文，token 预算通常最先触顶
+（他 Azure 时代的 60k 默认已上调）。
+
+回测结果支持增量更新：用同一个 `--run-id` 重跑时会恢复已有 `evaluations.json`，跳过已知
+表达式、只评估新增的，并只补画缺失的展示图（`--no-incremental` 全部重算，`--force` 重新
+评估已知表达式）。每次运行还会把评估行追加到 `experiments/xy/results.jsonl`（append-only，
+按 run/表达式幂等），便于累积读取历史结果。
 
 结果写到 `experiments/xy/<run_id>/`（已 gitignore）：`agent1|2|3_round*/` 产物、
 `research_memory.sqlite3`（反馈记录）、`display/<expr_id>/`（OOS/holdout 图 + 全样本

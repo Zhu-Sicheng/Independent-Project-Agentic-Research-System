@@ -350,6 +350,104 @@ def _json_safe(value):
     return value
 
 
+def evaluations_path(output_root: Path) -> Path:
+    return Path(output_root) / "evaluations.json"
+
+
+def load_incremental(path: Path) -> tuple[list[dict], set]:
+    """Resume an existing run: previous records plus the canonical expressions."""
+    if not path.exists():
+        return [], set()
+    try:
+        records = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return [], set()
+    if not isinstance(records, list):
+        return [], set()
+    seen = {
+        _canonical(record["expression"])
+        for record in records
+        if record.get("expression")
+    }
+    return records, seen
+
+
+def merge_records(previous: list[dict], new: list[dict]) -> list[dict]:
+    """Append new records, dropping duplicates by canonical expression."""
+    merged = list(previous)
+    known = {
+        _canonical(record["expression"])
+        for record in previous
+        if record.get("expression")
+    }
+    for record in new:
+        expression = record.get("expression")
+        if expression:
+            canonical = _canonical(expression)
+            if canonical in known:
+                continue
+            known.add(canonical)
+        merged.append(record)
+    return merged
+
+
+def append_results_store(path: Path, run_id: str, records: list[dict]) -> int:
+    """Append evaluation summaries to the global results file (idempotent)."""
+    from datetime import datetime, timezone
+
+    path = Path(path)
+    existing: set = set()
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if item.get("run_id") and item.get("expression"):
+                existing.add((item["run_id"], item["expression"]))
+    written = 0
+    lines = []
+    now = datetime.now(timezone.utc).isoformat()
+    for record in records:
+        expression = record.get("expression")
+        if not expression or record.get("status") != "evaluated":
+            continue
+        key = (run_id, expression)
+        if key in existing:
+            continue
+        existing.add(key)
+        is_metrics = ((record.get("is") or {}).get("metrics")) or {}
+        display = record.get("display") or {}
+        segments = display.get("segments") or {}
+        lines.append(
+            {
+                "run_id": run_id,
+                "expression": expression,
+                "round": record.get("round"),
+                "decision": record.get("decision"),
+                "in_sample": {
+                    key: is_metrics.get(key)
+                    for key in ("sharpe", "ann_return", "turnover", "max_drawdown", "rank_ic")
+                },
+                "display": {
+                    "is_sharpe": (segments.get("is") or {}).get("sharpe"),
+                    "oos_sharpe": (segments.get("oos") or {}).get("sharpe"),
+                    "holdout_sharpe": (segments.get("holdout") or {}).get("sharpe"),
+                },
+                "updated_at": now,
+            }
+        )
+        written += 1
+    if lines:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            for item in lines:
+                handle.write(json.dumps(_json_safe(item), ensure_ascii=False) + "\n")
+    return written
+
+
 def round_improved(round_best: float, best_so_far: float, tolerance: float = 1e-9) -> bool:
     """True when a feedback round produced a better in-sample result than before."""
     import math
@@ -607,6 +705,7 @@ def display_evaluation(
     output_root: Path,
     split=None,
     verbose: bool = True,
+    only_missing: bool = True,
 ) -> list[dict]:
     """Re-apply the IS-chosen configuration to the full panel and draw it.
 
@@ -626,6 +725,8 @@ def display_evaluation(
 
     for record in records:
         if record.get("status") != "evaluated" or not record.get("expression"):
+            continue
+        if only_missing and record.get("display"):
             continue
         try:
             config = (record.get("is") or {}).get("config") or {}
@@ -693,13 +794,14 @@ def run_pipeline(
     max_evals: int = 16,
     max_expressions_per_idea: int = 1,
     rounds: int = 3,
-    patience: int = 1,
     agent_modes: Optional[dict] = None,
     min_ideas: int = 2,
     max_ideas: int = 6,
     llm_max_turns: Optional[int] = None,
     llm_tool_calls: Optional[int] = None,
     llm_token_budget: Optional[int] = None,
+    incremental: bool = True,
+    force: bool = False,
     data_root: Optional[Path] = None,
     panel_dir: Optional[Path] = None,
     run_id: Optional[str] = None,
@@ -735,10 +837,7 @@ def run_pipeline(
         if verbose:
             print(message, flush=True)
 
-    say(
-        f"run {run_id}: agents={modes}, max_rounds={rounds}, patience={patience}, "
-        f"research_end={research_end}"
-    )
+    say(f"run {run_id}: agents={modes}, max_rounds={rounds}, research_end={research_end}")
     say(f"data: {data_root}")
 
     # ---- his agents: data understanding + ideas (cutoff = IS end) ----
@@ -767,8 +866,17 @@ def run_pipeline(
     critic = CriticAgent(build_client(LLMSettings.from_env()))
 
     agent3_runs: list[str] = []
-    records: list[dict] = []
+    eval_path = evaluations_path(output_root)
+    previous_records: list[dict] = []
     seen: set[str] = set()
+    if incremental and not force:
+        previous_records, seen = load_incremental(eval_path)
+        if previous_records:
+            say(
+                f"incremental: resumed {len(previous_records)} previous evaluations "
+                f"({len(seen)} expressions already known)"
+            )
+    records: list[dict] = list(previous_records)
     candidates: list[dict] = []
     agent3_result: dict = {}
 
@@ -780,28 +888,32 @@ def run_pipeline(
 
     round_index = 0
     best_is_sharpe = float("-inf")
-    stall_rounds = 0
     stop_reason = "max_rounds_reached"
     round_history: list[dict] = []
     max_rounds = max(1, rounds)
-    patience = max(1, patience)
     feedback_mode = modes["agent3"] == "llm"
+    pending_revisions: list[dict] = []
 
     while round_index < max_rounds:
-        say(f"round {round_index}: agent3 ({modes['agent3']}) ...")
-        agent3_dir, agent3_result = run_agent3(
-            agent1_dir, agent2_dir, output_root / f"agent3_round{round_index}",
-            memory_db, operator_file, mode=modes["agent3"],
-            max_expressions_per_idea=max_expressions_per_idea,
-            llm_max_turns=llm_max_turns, llm_tool_calls=llm_tool_calls,
-            llm_token_budget=llm_token_budget,
-        )
-        agent3_runs.append(str(agent3_dir))
-        candidates = agent3_result.get("expressions", [])
-        say(
-            f"round {round_index}: agent3 {agent3_dir.name} status={agent3_result.get('status')} "
-            f"expressions={len(candidates)}"
-        )
+        if pending_revisions:
+            candidates = pending_revisions
+            pending_revisions = []
+            say(f"round {round_index}: {len(candidates)} reviewer revisions (no Agent 3 call)")
+        else:
+            say(f"round {round_index}: agent3 ({modes['agent3']}) ...")
+            agent3_dir, agent3_result = run_agent3(
+                agent1_dir, agent2_dir, output_root / f"agent3_round{round_index}",
+                memory_db, operator_file, mode=modes["agent3"],
+                max_expressions_per_idea=max_expressions_per_idea,
+                llm_max_turns=llm_max_turns, llm_tool_calls=llm_tool_calls,
+                llm_token_budget=llm_token_budget,
+            )
+            agent3_runs.append(str(agent3_dir))
+            candidates = agent3_result.get("expressions", [])
+            say(
+                f"round {round_index}: agent3 {agent3_dir.name} status={agent3_result.get('status')} "
+                f"expressions={len(candidates)}"
+            )
         for candidate in candidates:
             idea = ideas.get(candidate.get("idea_id", ""), {})
             candidate.setdefault("_dataset_id", idea.get("dataset_id"))
@@ -824,9 +936,6 @@ def run_pipeline(
         improved = round_improved(round_best, best_is_sharpe)
         if improved:
             best_is_sharpe = round_best
-            stall_rounds = 0
-        else:
-            stall_rounds += 1
         round_history.append(
             {
                 "round": round_index,
@@ -834,24 +943,19 @@ def run_pipeline(
                 "new_evaluations": len(evaluated),
                 "round_best_is_sharpe": None if round_best == float("-inf") else round_best,
                 "improved": improved,
-                "stall_rounds": stall_rounds,
             }
         )
         say(
             f"round {round_index}: {len(new_records)} new evaluations (IS only); "
-            f"best IS Sharpe {round_best if round_best != float('-inf') else float('nan'):.3f}; "
-            f"stall {stall_rounds}"
+            f"round best IS Sharpe {round_best if round_best != float('-inf') else float('nan'):.3f}"
         )
 
-        if not new_records:
-            stop_reason = "no_new_candidates"
+        if not candidates:
+            stop_reason = "no_candidates"
+            say(f"round {round_index}: no candidates; stopping")
             break
         if round_index + 1 >= max_rounds:
             stop_reason = "max_rounds_reached"
-            break
-        if stall_rounds >= patience:
-            stop_reason = f"no_improvement_for_{stall_rounds}_round(s)"
-            say(f"stopping feedback: {stop_reason}")
             break
 
         if feedback_mode:
@@ -859,42 +963,28 @@ def run_pipeline(
             say(f"round {round_index}: wrote {written} in-sample feedback records to memory")
             round_index += 1
             continue
-        revisions = candidates_from_revisions(new_records)
-        if not revisions:
+        # offline: chain the reviewer's own revisions, one per round
+        pending_revisions = candidates_from_revisions(new_records)
+        if not pending_revisions:
             stop_reason = "no_offline_revisions"
             say(f"round {round_index}: no offline revisions; stopping the loop")
             break
-        say(f"round {round_index}: {len(revisions)} reviewer revisions queued for round {round_index + 1}")
-        revision_records = evaluate_is_candidates(
-            panel_is, revisions, ideas, seen, run_id, round_index + 1, grid, critic,
-            max_rounds=max_rounds, verbose=verbose,
+        say(
+            f"round {round_index}: {len(pending_revisions)} reviewer revisions queued "
+            f"for round {round_index + 1}"
         )
-        annotate(revision_records)
-        records.extend(revision_records)
-        say(f"round {round_index + 1}: {len(revision_records)} revision evaluations (IS only)")
-        round_history.append(
-            {
-                "round": round_index + 1,
-                "candidates": len(revisions),
-                "new_evaluations": len(revision_records),
-                "round_best_is_sharpe": max(
-                    (
-                        record["is"]["metrics"]["sharpe"]
-                        for record in revision_records
-                        if record.get("status") == "evaluated"
-                        and isinstance(record.get("is", {}).get("metrics", {}).get("sharpe"), (int, float))
-                    ),
-                    default=None,
-                ),
-                "improved": None,
-                "stall_rounds": None,
-            }
-        )
-        stop_reason = "reviewer_revisions_done"
-        break
+        round_index += 1
 
     # ---- display layer: OOS/holdout computed and drawn here, never fed back ----
-    records = display_evaluation(panel_full, records, run_id, output_root, verbose=verbose)
+    records = display_evaluation(
+        panel_full, records, run_id, output_root, verbose=verbose,
+        only_missing=incremental and not force,
+    )
+    new_result_rows = append_results_store(
+        EXPERIMENTS / "results.jsonl", run_id, records
+    )
+    if new_result_rows:
+        say(f"results store: appended {new_result_rows} row(s) to experiments/xy/results.jsonl")
 
     # ---- factor pool for accepted candidates (IS-selected configuration) ----
     pool = FactorPool(output_root / "pool")
@@ -939,9 +1029,14 @@ def run_pipeline(
         "mode": mode,
         "agent_modes": modes,
         "max_rounds": max_rounds,
-        "patience": patience,
         "stop_reason": stop_reason,
         "round_history": round_history,
+        "incremental": {
+            "enabled": bool(incremental and not force),
+            "previous_evaluations": len(previous_records),
+            "total_evaluations": sum(1 for r in records if r.get("status") == "evaluated"),
+            "new_result_rows": new_result_rows,
+        },
         "research_end": research_end,
         "data_isolation": {
             "optimisation": "in-sample only (panel cut at research_end; grid selects on IS)",
@@ -1006,8 +1101,13 @@ def run_pipeline(
     lines = [
         f"# Merged pipeline run `{run_id}`",
         "",
-        f"- agent modes: {modes}; max feedback rounds: {max_rounds}; patience: {patience}; "
+        f"- agent modes: {modes}; max feedback rounds: {max_rounds}; "
         f"stopped: `{stop_reason}`; elapsed {summary['elapsed_s']}s",
+        f"- incremental: {summary['incremental']['enabled']} "
+        f"(resumed {summary['incremental']['previous_evaluations']} evaluations, "
+        f"{summary['incremental']['total_evaluations']} total); "
+        f"new rows appended to `experiments/xy/results.jsonl`: "
+        f"{summary['incremental']['new_result_rows']}",
         f"- **data isolation**: the optimisation loop sees **in-sample only** "
         f"(panel cut at {research_end}, {panel_is.shape[0]} of {panel_full.shape[0]} days); "
         f"OOS/holdout are computed only in the display layer below",
@@ -1051,9 +1151,13 @@ def main(argv: Optional[list[str]] = None) -> None:
         "--research-end", default=IS_END_DEFAULT,
         help="in-sample end; the optimisation loop never sees dates after it",
     )
-    parser.add_argument("--rounds", type=int, default=3, help="maximum feedback rounds")
-    parser.add_argument("--patience", type=int, default=1,
-                        help="stop after this many rounds without an in-sample improvement")
+    parser.add_argument("--rounds", type=int, default=3, help="feedback rounds to run")
+    parser.add_argument("--incremental", dest="incremental", action="store_true", default=True,
+                        help="resume an existing run and only evaluate new expressions (default)")
+    parser.add_argument("--no-incremental", dest="incremental", action="store_false",
+                        help="recompute every expression from scratch")
+    parser.add_argument("--force", action="store_true",
+                        help="re-evaluate records that already exist (implies no resume)")
     parser.add_argument("--min-ideas", type=int, default=2)
     parser.add_argument("--max-ideas", type=int, default=6)
     parser.add_argument("--llm-max-turns", type=int, default=None, help="per-agent turn cap in LLM mode")
@@ -1086,7 +1190,8 @@ def main(argv: Optional[list[str]] = None) -> None:
         max_evals=args.max_evals,
         max_expressions_per_idea=args.max_expressions_per_idea,
         rounds=args.rounds,
-        patience=args.patience,
+        incremental=args.incremental,
+        force=args.force,
         agent_modes=agent_modes,
         min_ideas=args.min_ideas,
         max_ideas=args.max_ideas,

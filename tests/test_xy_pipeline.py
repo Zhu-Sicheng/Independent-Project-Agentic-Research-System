@@ -13,8 +13,11 @@ from factorlab.expr.validate import validate_expression
 from factorlab.xy_pipeline import (
     FIELD_MAP,
     apply_llm_overrides,
+    append_results_store,
     display_evaluation,
     hypothesis_from_idea,
+    load_incremental,
+    merge_records,
     round_improved,
     split_is_panel,
     translate_expression,
@@ -188,6 +191,56 @@ class TestFeedbackLimits(unittest.TestCase):
             self.assertEqual(os.environ[f"AGENT{index}_BASE_URL"], "https://api.deepseek.com/v1")
             self.assertEqual(os.environ[f"AGENT{index}_API_KEY"], "test-key")
             self.assertEqual(os.environ[f"AGENT{index}_MODEL"], "deepseek-chat")
+
+
+class TestIncrementalResults(unittest.TestCase):
+    def test_merge_records_dedupes_by_canonical_expression(self):
+        previous = [
+            {"expression": "-ts_returns(close, 5)", "status": "evaluated"},
+            {"expression": "ts_returns(close, 60)", "status": "evaluated"},
+        ]
+        new = [
+            {"expression": "-ts_returns(close,5)", "status": "evaluated"},  # duplicate
+            {"expression": "ts_returns(close, 20)", "status": "evaluated"},
+        ]
+        merged = merge_records(previous, new)
+        self.assertEqual(len(merged), 3)
+        self.assertEqual(merged[-1]["expression"], "ts_returns(close, 20)")
+
+    def test_load_incremental_returns_seen_canonicals(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            path = Path(tmp) / "evaluations.json"
+            path.write_text(
+                json.dumps([{"expression": "-ts_returns(close, 5)", "status": "evaluated"}]),
+                encoding="utf-8",
+            )
+            records, seen = load_incremental(path)
+            self.assertEqual(len(records), 1)
+            self.assertIn("-ts_returns(close, 5)", seen)
+            self.assertEqual(load_incremental(Path(tmp) / "missing.json"), ([], set()))
+
+    def test_results_store_is_append_only_and_idempotent(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            path = Path(tmp) / "results.jsonl"
+            records = [
+                {
+                    "expression": "-rank(ts_mean(close, 20))",
+                    "status": "evaluated",
+                    "decision": "optimize",
+                    "round": 0,
+                    "is": {"metrics": {"sharpe": 0.9}},
+                    "display": {"segments": {"oos": {"sharpe": 0.2}}},
+                }
+            ]
+            first = append_results_store(path, "run_a", records)
+            second = append_results_store(path, "run_a", records)
+            self.assertEqual(first, 1)
+            self.assertEqual(second, 0)
+            lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertEqual(len(lines), 1)
+            item = json.loads(lines[0])
+            self.assertEqual(item["run_id"], "run_a")
+            self.assertAlmostEqual(item["display"]["oos_sharpe"], 0.2)
 
 
 class TestHypothesis(unittest.TestCase):
