@@ -547,6 +547,29 @@ into `experiments/records/<run_id>/`, recovers the natural-language hypotheses
 (from the report or from the run log) into `hypotheses.json`, and regenerates the
 batch `README.md` with the hypothesis text next to every result.
 
+#### Stability checks
+
+The mining loop reports the *best* configuration; a factor that only works for one
+decay, one transform or one window is fragile. A dedicated module re-runs the same
+signal under every check and plots the resulting pnl against the baseline:
+
+| check | variants |
+|---|---|
+| universe | `if_else(rank(cap) > 0.3, factor, nan)`; cap filter on / off |
+| cross-section | `none` / `rank` / `sign` |
+| decay | `0 / 5 / 20 / 60` |
+| windows | every literal window in the expression replaced one slot at a time |
+
+```powershell
+python -m factorlab.stability --run <run_id> --hypothesis <name>
+python -m factorlab.stability --run <run_id> --all
+python -m factorlab.stability --index        # rebuild the summary table
+```
+
+Outputs go to `experiments/stability/<run_id>__<factor>/` (`pnl.png` with the
+baseline plus each check, `metrics.csv`, `README.md`). They never overwrite the
+batch figures or the single-run view.
+
 ### 9. Known limitations / next steps
 
 1. **Only price/volume**: no sector, size neutralisation or fundamentals;
@@ -1057,6 +1080,27 @@ python -m factorlab.archive_runs --runs <run_id> [<run_id> ...] `
 它把 `attempts.jsonl` / `run.json` / `report.md` / `panel_summary.json` 复制到
 `experiments/records/<run_id>/`，从报告或日志里恢复自然语言假设写入 `hypotheses.json`，
 并重新生成批次 `README.md`（每条结果旁边附假设原文）。
+
+#### 稳定性检验
+
+网格搜索只报告**最优配置**，但只在某个 decay / 某个截面变换 / 某个窗口下有效的因子是脆弱的。
+独立模块把同一信号在每个检验下重跑一遍，与原配置的 pnl 画在一起：
+
+| 检验 | 变体 |
+|---|---|
+| 股票池 | `if_else(rank(cap) > 0.3, factor, nan)`；市值过滤开 / 关 |
+| 截面变换 | `none` / `rank` / `sign` |
+| 时间衰减 | `0 / 5 / 20 / 60` |
+| 时间窗口 | 表达式里每个窗口槽位逐一替换 |
+
+```powershell
+python -m factorlab.stability --run <run_id> --hypothesis <name>
+python -m factorlab.stability --run <run_id> --all
+python -m factorlab.stability --index        # 重建汇总表
+```
+
+结果写到 `experiments/stability/<run_id>__<factor>/`（`pnl.png` 含原配置与各检验曲线、
+`metrics.csv`、`README.md`），**不覆盖**批次图与单次 run 的图。
 
 ### 9. 已知限制 / 下一步
 
