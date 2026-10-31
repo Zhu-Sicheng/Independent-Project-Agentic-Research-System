@@ -111,6 +111,8 @@ docs/
 experiments/
   ledger.csv           # every attempt across runs, with IS/OOS/holdout metrics
   reports/<run_id>.md  # per-run report (hypothesis, decision, yearly tables)
+  records/<run_id>/    # archived attempts.jsonl / run.json / hypotheses.json
+  batch10/             # ten-attempt audit: summary, plots, daily pnl, yearly tables
 ```
 
 ### 3. Data
@@ -532,6 +534,19 @@ Alongside the CSV, `--rebuild` copies each run's `report.md` to
 rationale, decision, per-year tables) are versioned and visible on GitHub while
 the raw `runs/` directory stays local.
 
+For batches that must be readable end-to-end, archive the structured artifacts
+too:
+
+```powershell
+python -m factorlab.archive_runs --runs <run_id> [<run_id> ...] `
+  --logs batch.log --batch experiments/batch10
+```
+
+This copies `attempts.jsonl` / `run.json` / `report.md` / `panel_summary.json`
+into `experiments/records/<run_id>/`, recovers the natural-language hypotheses
+(from the report or from the run log) into `hypotheses.json`, and regenerates the
+batch `README.md` with the hypothesis text next to every result.
+
 ### 9. Known limitations / next steps
 
 1. **Only price/volume**: no sector, size neutralisation or fundamentals;
@@ -654,6 +669,8 @@ docs/
 experiments/
   ledger.csv           # 跨 run 的全部尝试，含 IS/OOS/holdout 指标
   reports/<run_id>.md  # 每次 run 的报告（假设、决策、分年表）
+  records/<run_id>/    # 归档的 attempts.jsonl / run.json / hypotheses.json
+  batch10/             # 十次实验审计：汇总、图、日频 pnl、分年表
 ```
 
 ### 3. 数据模块
@@ -1029,6 +1046,17 @@ python -m factorlab view --run <run_id> --hypothesis <name> --no-plot
 
 `--rebuild` 同时把每次 run 的 `report.md` 复制到 `experiments/reports/<run_id>.md`，
 于是「假设—理由—决策—分年表」这些文字结论也进 git、在 GitHub 上可见，而原始 `runs/` 仍留在本地。
+
+需要完整留档一个批次时，用归档命令：
+
+```powershell
+python -m factorlab.archive_runs --runs <run_id> [<run_id> ...] `
+  --logs batch.log --batch experiments/batch10
+```
+
+它把 `attempts.jsonl` / `run.json` / `report.md` / `panel_summary.json` 复制到
+`experiments/records/<run_id>/`，从报告或日志里恢复自然语言假设写入 `hypotheses.json`，
+并重新生成批次 `README.md`（每条结果旁边附假设原文）。
 
 ### 9. 已知限制 / 下一步
 

@@ -1,0 +1,8 @@
+{
+  "overnight_intraday_reversal": "Stocks whose cumulative overnight return over the past 20 days exceeds their cumulative intraday return (i.e., gains concentrated overnight) underperform over the next 5 trading days; the reverse holds for stocks whose gains are concentrated intraday.",
+  "close_position_persistence": "Stocks with a high average close_position (close near the daily high) over the past 20 days outperform stocks with low average close_position over the next 5 trading days.",
+  "range_contraction_breakout": "Stocks whose 20-day average high-low range is low relative to their 120-day average range (range compression) outperform over the next 20 trading days, with the effect stronger when recent 20-day return is positive.",
+  "dollar_volume_shock_reversal": "Stocks with abnormally high 5-day dollar volume relative to their 60-day average dollar volume underperform over the next 5 trading days.",
+  "overnight_gap_fade": "Stocks with the largest positive overnight gaps (top of cross-sectional distribution) over the past 5 days underperform over the next 5 trading days, and stocks with the largest negative gaps outperform.",
+  "intraday_momentum_continuation": "Stocks with high cumulative intraday_return over the past 20 days outperform over the next 20 trading days."
+}

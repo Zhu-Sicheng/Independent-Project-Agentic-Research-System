@@ -1,0 +1,4 @@
+{
+  "short_term_reversal": "Stocks whose 5-day return is in the bottom cross-sectional decile outperform those in the top decile over the next week.",
+  "low_volatility_anomaly": "Stocks with low 20-day realised volatility outperform high-volatility stocks on a risk-adjusted basis over the following month."
+}

@@ -1,0 +1,3 @@
+{
+  "overnight_intraday_return_divergence": "Stocks whose 20-day cumulative overnight return exceeds their 20-day cumulative intraday return (positive divergence) underperform over the next 5 trading days, and stocks with the opposite divergence outperform; the cross-sectional rank IC of the divergence factor is negative."
+}

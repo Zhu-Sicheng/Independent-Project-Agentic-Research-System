@@ -1,0 +1,3 @@
+{
+  "intraday_range_position_reversal": "Stocks whose close sits near the top of their daily high-low range underperform stocks whose close sits near the bottom of their range over the next 5 trading days; the cross-sectional rank IC of (close-low)/(high-low) is negative."
+}

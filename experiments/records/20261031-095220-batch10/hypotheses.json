@@ -1,0 +1,6 @@
+{
+  "overnight_intraday_reversal": "Stocks whose cumulative overnight return over the past 20 days exceeds their cumulative intraday return (i.e., gains concentrated overnight) underperform over the next 5 trading days; the reverse holds for stocks whose gains are concentrated intraday.",
+  "volume_price_divergence": "Stocks whose 20-day price trend is high relative to their 20-day volume trend underperform stocks with low price trend relative to volume trend over the next 10 trading days (IC negative).",
+  "range_compression_breakout": "Among stocks with compressed 20-day ranges, those with high average close_position (closing near daily highs) outperform those with low close_position over the next 10 trading days (IC positive).",
+  "illiquidity_shock_reversal": "Stocks with a high 5-day turnover spike relative to their 60-day average, combined with a small absolute 5-day return, outperform over the next 5 trading days (IC positive)."
+}
