@@ -171,6 +171,13 @@ def prepare_factor(
         with np.errstate(divide="ignore", invalid="ignore"):
             mu = sums / np.where(counts > 0, counts, np.nan)
         w = farr - mu[:, None]
+        # A constant cross-section has no long/short signal. Never amplify
+        # round-off in demeaning (e.g. ranks of x/x) into a unit-gross book.
+        upper = np.max(np.where(finite, farr, -np.inf), axis=1)
+        lower = np.min(np.where(finite, farr, np.inf), axis=1)
+        scale = np.maximum(1.0, np.maximum(np.abs(upper), np.abs(lower)))
+        flat = (counts == 0) | ((upper - lower) <= 1e-12 * scale)
+        w[flat, :] = 0.0
     else:
         w = farr.copy()
     gross = np.nansum(np.abs(w), axis=1)

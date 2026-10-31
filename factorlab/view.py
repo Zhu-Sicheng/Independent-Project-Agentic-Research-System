@@ -26,7 +26,8 @@ from .backtest.split import resolve_split, segment_metrics
 from .config import PROJECT_ROOT, BacktestSettings
 from .data.panel import PanelStore
 from .experiments import LEDGER_PATH, load_ledger, render
-from .expr.evaluator import evaluate_text
+from .expr.evaluator import evaluate
+from .expr import parser as P
 from .expr.script import run_script
 from .markdown import md_table
 
@@ -37,9 +38,10 @@ def _run_dir(run: str) -> Path:
     path = Path(run)
     if path.is_dir():
         return path
-    candidate = PROJECT_ROOT / "runs" / run
-    if candidate.is_dir():
-        return candidate
+    for root in (PROJECT_ROOT / "runs", PROJECT_ROOT / "experiments" / "records"):
+        candidate = root / run
+        if candidate.is_dir():
+            return candidate
     matches = sorted((PROJECT_ROOT / "runs").glob(f"*{run}*"))
     dirs = [m for m in matches if m.is_dir()]
     if len(dirs) == 1:
@@ -51,8 +53,12 @@ def _run_dir(run: str) -> Path:
 
 def load_attempt(run: str, hypothesis: Optional[str] = None) -> tuple[Path, dict]:
     run_dir = _run_dir(run)
-    payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
-    attempts = payload.get("attempts") or []
+    journal = run_dir / "attempts.jsonl"
+    if journal.exists():
+        attempts = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines() if line.strip()]
+    else:
+        payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+        attempts = payload.get("attempts") or []
     if not attempts:
         raise ValueError(f"{run_dir.name} has no attempts")
     if hypothesis:
@@ -66,6 +72,15 @@ def load_attempt(run: str, hypothesis: Optional[str] = None) -> tuple[Path, dict
     return run_dir, attempt
 
 
+def winning_expression(attempt: dict) -> str:
+    spec = attempt.get("spec") or {}
+    ast = P.parse(spec.get("expression", ""))
+    windows = ((attempt.get("grid") or {}).get("best") or {}).get("windows")
+    if windows is not None and P.collect_windows(ast):
+        ast = P.substitute_windows(ast, windows)
+    return P.to_string(ast)
+
+
 def rebuild_result(
     panel: PanelStore, attempt: dict, subuniverse: Optional[float] = 0.3
 ):
@@ -76,16 +91,28 @@ def rebuild_result(
     settings = BacktestSettings(
         decay=int(best.get("decay") or 0),
         transform=str(best.get("transform") or "none"),
-        cap_filter=None if best.get("cap_filter") is None else float(best["cap_filter"]),
+        cap_filter=(float(best["cap_filter"]) if best.get("cap_filter") is not None
+                    and np.isfinite(float(best["cap_filter"])) else None),
         compute_ic=True,
         subuniverse=subuniverse,
     )
     if spec.get("kind") == "script":
         factor = run_script(spec.get("script", ""), panel, best.get("params") or {})
     else:
-        factor = evaluate_text(spec.get("expression", ""), panel)
+        factor = evaluate(P.parse(winning_expression(attempt)), panel)
     result = run_backtest_with_subuniverse(factor, panel, settings)
-    masks = resolve_split(panel.dates, panel.meta.get("default_split"))
+    from .config import SampleSplit
+    split_meta = grid.get("split") or {}
+    ranges = [split_meta.get(k) for k in ("is_range", "oos_range", "holdout_range")]
+    split = panel.meta.get("default_split")
+    if split_meta.get("mode") == "none":
+        split = None
+    elif ranges[0] and ranges[1]:
+        split = SampleSplit(train_start=ranges[0][0], train_end=ranges[0][1],
+                            test_start=ranges[1][0], test_end=ranges[1][1],
+                            holdout_start=ranges[2][0] if ranges[2] else None,
+                            holdout_end=ranges[2][1] if ranges[2] else None)
+    masks = resolve_split(panel.dates, split)
     result.segments = segment_metrics(
         result.pnl, result.turnover, result.ic, result.factor, masks, ann=settings.ann
     )
@@ -108,8 +135,6 @@ def yearly_stats(pnl: pd.Series, turnover: pd.Series, ic: pd.Series) -> pd.DataF
     rows = []
     clean = pnl.dropna()
     for year, sub in clean.groupby(clean.index.year):
-        if len(sub) < 20:
-            continue
         cum = (1 + sub).cumprod()
         rows.append(
             {
@@ -166,7 +191,7 @@ def plot_result(
     seg_styles = {
         "is": ("#dfe9f7", "in-sample"),
         "oos": ("#fdeedd", "out-of-sample"),
-        "holdout": ("#e3f2e3", "holdout"),
+        "holdout": ("#e3f2e3", "observed holdout"),
     }
     blend = blended_transform_factory(ax.transData, ax.transAxes)
     for name, (color, label) in seg_styles.items():
@@ -188,7 +213,8 @@ def plot_result(
             color="#333333",
             bbox={"facecolor": "white", "alpha": 0.65, "edgecolor": "none", "pad": 1.5},
         )
-    ax.set_title(title, fontsize=9.5)
+    import textwrap
+    ax.set_title("\n".join(textwrap.wrap(title, 110)), fontsize=8.5)
     ax.set_ylabel("growth of 1 (1x gross)")
     ax.grid(alpha=0.25)
     ax.legend(fontsize=7, loc="lower left", frameon=False)
@@ -219,7 +245,7 @@ def plot_result(
         ax.grid(alpha=0.2, axis="y")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout()
+    fig.subplots_adjust(top=0.90, bottom=0.07)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return out_path
@@ -266,6 +292,7 @@ def view(
     run_dir, attempt = load_attempt(run, hypothesis)
     panel = load_processed(data)
     result, masks = rebuild_result(panel, attempt)
+    effective = winning_expression(attempt) if (attempt.get("spec") or {}).get("kind") != "script" else "<script>"
     spec = attempt.get("spec") or {}
     grid = attempt.get("grid") or {}
     best = grid.get("best") or {}
@@ -280,6 +307,7 @@ def view(
         f"- config: decay={best.get('decay')}, transform={best.get('transform')}, "
         f"cap_filter={best.get('cap_filter')}, windows={best.get('windows')}, "
         f"params={best.get('params')}",
+        f"- effective expression: `{effective}`",
         f"- sub-universe threshold: {result.settings.subuniverse}",
         "",
         "## Segments",
@@ -320,14 +348,26 @@ def view(
 
     if plot:
         slug = str(attempt.get("hypothesis") or "factor").replace(" ", "_")
-        out = (out_dir or PLOTS_DIR) / f"{run_dir.name}_{slug}.png"
+        root = Path(out_dir or PLOTS_DIR)
+        root.mkdir(parents=True, exist_ok=True)
+        stem = f"{run_dir.name}_{slug}_a{attempt.get('attempt', 0)}"
+        out = root / f"{stem}.png"
+        daily = pd.DataFrame({"pnl": result.pnl, "turnover": result.turnover,
+                              "rank_ic": result.ic, "pearson_ic": result.pearson_ic})
+        if result.subuniverse is not None:
+            daily["sub_pnl"] = result.subuniverse.pnl
+        daily.to_csv(root / f"{stem}_daily.csv", index_label="date")
+        yearly.to_csv(root / f"{stem}_yearly.csv")
         plot_result(
             attempt,
             result,
             masks,
             out,
-            title=f"{attempt.get('hypothesis')} | {spec.get('expression') or '<script>'}",
+            title=f"{attempt.get('hypothesis')} | {effective}",
         )
         lines += ["", f"![plot]({out})", "", f"plot: `{out}`"]
 
-    return "\n".join(lines)
+    text = "\n".join(lines)
+    if plot:
+        (root / f"{stem}.md").write_text(text, encoding="utf-8")
+    return text

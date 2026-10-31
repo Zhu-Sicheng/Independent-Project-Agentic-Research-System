@@ -96,6 +96,13 @@ class TestLedger(unittest.TestCase):
             self.assertEqual(df.iloc[0]["llm"], "openai-compatible")
             self.assertTrue(out.exists())
 
+            audit = out.parent / 'batch10' / 'verification.json'
+            audit.parent.mkdir()
+            audit.write_text(json.dumps([{'run_id': '20260101-010101-test',
+                                          'hypothesis': 'h1',
+                                          'verification_status': 'invalid_constant_signal'}]), encoding='utf-8')
+            checked = rebuild_ledger(runs_dir=Path(tmp) / 'runs', out=out)
+            self.assertEqual(checked.iloc[0]['verification_status'], 'invalid_constant_signal')
             loaded = load_ledger(out)
             self.assertEqual(len(loaded), 1)
             self.assertAlmostEqual(float(loaded.iloc[0]["sharpe_is"]), 1.2)

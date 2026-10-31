@@ -8,7 +8,7 @@ dist/
 .venv/
 venv/
 
-# generated artefacts (regenerate with `python -m factorlab gen-data`)
+# local runtime artifacts
 runs/
 pool/
 experiments/plots/
@@ -33,6 +33,10 @@ data/raw/
 
 # logs
 *.log
+*.err
+task_plan.md
+findings.md
+progress.md
 
 # local secrets: API keys live in .env only, never in git
 .env

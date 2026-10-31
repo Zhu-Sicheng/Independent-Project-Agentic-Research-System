@@ -85,6 +85,7 @@ LEDGER_COLUMNS: tuple[str, ...] = (
     "factor_id",
     "elapsed_s",
     "error",
+    "verification_status",
 )
 
 
@@ -257,6 +258,12 @@ def rebuild_ledger(
         )
 
     out.parent.mkdir(parents=True, exist_ok=True)
+    df["verification_status"] = df["verification_status"].astype(object)
+    audit = out.parent / "batch10" / "verification.json"
+    if audit.exists():
+        for item in json.loads(audit.read_text(encoding="utf-8")):
+            matched = (df["run_id"] == item["run_id"]) & (df["hypothesis"] == item["hypothesis"])
+            df.loc[matched, "verification_status"] = item["verification_status"]
     df.to_csv(out, index=False, encoding="utf-8")
 
     # keep the human-readable conclusions next to the ledger so they are
@@ -289,6 +296,7 @@ def render(df: pd.DataFrame, sort: str = "sharpe_oos", top: int = 30) -> str:
         "run_id",
         "hypothesis",
         "decision",
+        "verification_status",
         "sharpe_full",
         "sharpe_is",
         "sharpe_oos",

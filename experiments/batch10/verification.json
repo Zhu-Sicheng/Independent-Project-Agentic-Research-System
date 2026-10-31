@@ -1,0 +1,72 @@
+[
+  {
+    "run_id": "20261031-095220-batch10",
+    "hypothesis": "overnight_intraday_reversal",
+    "verification_status": "verified",
+    "historical_sharpe_full": 0.75,
+    "sharpe_full": 0.7497859090512387
+  },
+  {
+    "run_id": "20261031-095220-batch10",
+    "hypothesis": "volume_price_divergence",
+    "verification_status": "verified",
+    "historical_sharpe_full": 1.053,
+    "sharpe_full": 1.0525027065874688
+  },
+  {
+    "run_id": "20261031-095220-batch10",
+    "hypothesis": "range_compression_breakout",
+    "verification_status": "verified",
+    "historical_sharpe_full": -0.052,
+    "sharpe_full": -0.0515005649539639
+  },
+  {
+    "run_id": "20261031-095220-batch10",
+    "hypothesis": "illiquidity_shock_reversal",
+    "verification_status": "verified",
+    "historical_sharpe_full": 0.29,
+    "sharpe_full": 0.2904757476618564
+  },
+  {
+    "run_id": "20261031-101653-batch10c",
+    "hypothesis": "overnight_intraday_reversal",
+    "verification_status": "verified",
+    "historical_sharpe_full": 0.396,
+    "sharpe_full": 0.3961774898435005
+  },
+  {
+    "run_id": "20261031-101653-batch10c",
+    "hypothesis": "close_position_persistence",
+    "verification_status": "verified",
+    "historical_sharpe_full": 0.511,
+    "sharpe_full": 0.5112003411491006
+  },
+  {
+    "run_id": "20261031-101653-batch10c",
+    "hypothesis": "range_contraction_breakout",
+    "verification_status": "verified",
+    "historical_sharpe_full": 0.065,
+    "sharpe_full": 0.0651949051784226
+  },
+  {
+    "run_id": "20261031-101653-batch10c",
+    "hypothesis": "dollar_volume_shock_reversal",
+    "verification_status": "invalid_constant_signal",
+    "historical_sharpe_full": 0.504,
+    "sharpe_full": NaN
+  },
+  {
+    "run_id": "20261031-101653-batch10c",
+    "hypothesis": "overnight_gap_fade",
+    "verification_status": "verified",
+    "historical_sharpe_full": 0.652,
+    "sharpe_full": 0.6517447416341714
+  },
+  {
+    "run_id": "20261031-101653-batch10c",
+    "hypothesis": "intraday_momentum_continuation",
+    "verification_status": "verified",
+    "historical_sharpe_full": 0.601,
+    "sharpe_full": 0.6006615448660892
+  }
+]

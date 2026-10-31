@@ -98,6 +98,17 @@ class MiningLoop:
             tried=self.tried,
         )
         self._hypotheses = {h["name"]: h for h in hyps}
+        from dataclasses import asdict
+        (self.run_dir / "hypotheses.json").write_text(
+            json.dumps(hyps, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        (self.run_dir / "config.json").write_text(
+            json.dumps({"backtest": asdict(self.config.backtest),
+                        "grid": asdict(self.config.grid),
+                        "split": self.split_masks.meta,
+                        "llm_model": self.config.llm.model},
+                       indent=2, ensure_ascii=False, default=str), encoding="utf-8"
+        )
         self._log(f"proposed {len(hyps)} hypotheses: {[h['name'] for h in hyps]}")
 
         for h in hyps:
@@ -250,6 +261,11 @@ class MiningLoop:
         self.attempts.append(record)
         with (self.run_dir / "attempts.jsonl").open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record.__dict__, ensure_ascii=False, default=str) + "\n")
+        archive = self.run_dir.parent.parent / "experiments" / "records" / self.run_id
+        archive.mkdir(parents=True, exist_ok=True)
+        (archive / "attempts.jsonl").write_text(
+            (self.run_dir / "attempts.jsonl").read_text(encoding="utf-8"), encoding="utf-8"
+        )
 
     def _log(self, msg: str) -> None:
         if self.verbose:
