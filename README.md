@@ -110,6 +110,7 @@ docs/
   operators.md         # approved operator signatures and definitions
 experiments/
   ledger.csv           # every attempt across runs, with IS/OOS/holdout metrics
+  reports/<run_id>.md  # per-run report (hypothesis, decision, yearly tables)
 ```
 
 ### 3. Data
@@ -516,6 +517,11 @@ python -m factorlab ledger --rebuild
 python -m factorlab ledger --sort sharpe_oos --top 20
 ```
 
+Alongside the CSV, `--rebuild` copies each run's `report.md` to
+`experiments/reports/<run_id>.md`, so the narrative conclusions (hypothesis,
+rationale, decision, per-year tables) are versioned and visible on GitHub while
+the raw `runs/` directory stays local.
+
 ### 9. Known limitations / next steps
 
 1. **Only price/volume**: no sector, size neutralisation or fundamentals;
@@ -637,6 +643,7 @@ docs/
   operators.md         # 白名单算子的签名与定义
 experiments/
   ledger.csv           # 跨 run 的全部尝试，含 IS/OOS/holdout 指标
+  reports/<run_id>.md  # 每次 run 的报告（假设、决策、分年表）
 ```
 
 ### 3. 数据模块
@@ -1001,6 +1008,9 @@ pool.report()                      # markdown
 python -m factorlab ledger --rebuild
 python -m factorlab ledger --sort sharpe_oos --top 20
 ```
+
+`--rebuild` 同时把每次 run 的 `report.md` 复制到 `experiments/reports/<run_id>.md`，
+于是「假设—理由—决策—分年表」这些文字结论也进 git、在 GitHub 上可见，而原始 `runs/` 仍留在本地。
 
 ### 9. 已知限制 / 下一步
 

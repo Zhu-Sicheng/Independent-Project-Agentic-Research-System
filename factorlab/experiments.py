@@ -258,6 +258,18 @@ def rebuild_ledger(
 
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False, encoding="utf-8")
+
+    # keep the human-readable conclusions next to the ledger so they are
+    # versioned too (runs/ itself stays local and gitignored)
+    reports_dir = out.parent / "reports"
+    if runs_dir.exists():
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        for run_dir in sorted(p for p in runs_dir.iterdir() if p.is_dir()):
+            report = run_dir / "report.md"
+            if report.exists():
+                (reports_dir / f"{run_dir.name}.md").write_text(
+                    report.read_text(encoding="utf-8"), encoding="utf-8"
+                )
     return df
 
 
