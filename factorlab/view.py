@@ -31,14 +31,21 @@ from .expr import parser as P
 from .expr.script import run_script
 from .markdown import md_table
 
-PLOTS_DIR = PROJECT_ROOT / "experiments" / "plots"
+PLOTS_DIR = PROJECT_ROOT / "experiments" / ".index" / "plots"
 
 
 def _run_dir(run: str) -> Path:
     path = Path(run)
     if path.is_dir():
         return path
-    for root in (PROJECT_ROOT / "runs", PROJECT_ROOT / "experiments" / "records"):
+    from .experiments_store import iter_experiment_dirs
+
+    record_roots = [
+        experiment / "records"
+        for experiment in iter_experiment_dirs()
+        if (experiment / "records").is_dir()
+    ]
+    for root in [PROJECT_ROOT / "runs"] + record_roots:
         candidate = root / run
         if candidate.is_dir():
             return candidate

@@ -11,7 +11,7 @@ re-runs the same signal under the checks the research plan calls for:
 * ``window``     — every literal window in the expression replaced one slot at a time
 
 Every variant gets its own pnl, metrics and a correlation with the baseline pnl.
-Results go to a dedicated directory (``experiments/stability/<run>__<factor>/``)
+Results go to a derived directory (``experiments/.index/stability/<run>__<factor>/``)
 and never overwrite the batch / view figures.
 
 ``python -m factorlab.stability --run <run_id> --hypothesis <name>``
@@ -37,7 +37,7 @@ from .expr.evaluator import evaluate
 from .markdown import md_table
 from .view import load_attempt, winning_expression
 
-STABILITY_DIR = PROJECT_ROOT / "experiments" / "stability"
+STABILITY_DIR = PROJECT_ROOT / "experiments" / ".index" / "stability"
 SUBUNIVERSE_THRESHOLD = 0.3
 
 

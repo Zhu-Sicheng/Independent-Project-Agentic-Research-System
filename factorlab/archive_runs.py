@@ -3,7 +3,8 @@
 ``python -m factorlab.archive_runs --runs <run_id> ... --batch experiments/batch10``
 
 The raw ``runs/`` directory is gitignored because it is large and machine-local;
-this command copies the structured artifacts into ``experiments/records/<run_id>/``
+this command copies the structured artifacts into the date-ordered
+``experiments/<YYYYMMDD>-mining-runs/records/<run_id>/``
 and rebuilds ``summary``/``README`` (including the natural-language hypotheses)
 from those copies, so the uploaded batch is self-contained.
 """
@@ -23,7 +24,9 @@ from .config import PROJECT_ROOT
 from .markdown import md_table
 
 RUNS_DIR = PROJECT_ROOT / "runs"
-RECORDS_DIR = PROJECT_ROOT / "experiments" / "records"
+from .experiments_store import EXPERIMENTS, date_of
+
+RECORDS_ROOT = EXPERIMENTS
 
 _HYPOTHESIS_LINE = re.compile(r"^\*\*hypothesis\*\*:\s*(.+)$")
 _SECTION = re.compile(r"^##\s+([A-Za-z0-9_\-]+)\s*$")
@@ -68,14 +71,13 @@ def archive_runs(
     logs: Iterable[str] = (),
     batch_dir: Optional[str] = None,
 ) -> dict[str, str]:
-    """Copy run artifacts to ``experiments/records``; return the hypothesis texts."""
-    RECORDS_DIR.mkdir(parents=True, exist_ok=True)
+    """Copy run artifacts into the date-ordered experiment dir; return the hypothesis texts."""
     texts: dict[str, str] = {}
     for run_id in run_ids:
         run_dir = RUNS_DIR / run_id
         if not run_dir.is_dir():
             raise FileNotFoundError(run_dir)
-        dest = RECORDS_DIR / run_id
+        dest = RECORDS_ROOT / f"{date_of(run_id)}-mining-runs" / "records" / run_id
         dest.mkdir(parents=True, exist_ok=True)
         for item in run_dir.iterdir():
             if item.is_file():
@@ -88,7 +90,7 @@ def archive_runs(
         texts.update(parse_log_hypotheses(PROJECT_ROOT / log))
 
     for run_id in run_ids:
-        dest = RECORDS_DIR / run_id
+        dest = RECORDS_ROOT / f"{date_of(run_id)}-mining-runs" / "records" / run_id
         journal = dest / "attempts.jsonl"
         if not journal.exists():
             continue

@@ -2,7 +2,7 @@
 
 ``python -m factorlab.batch_report --prefix p100 --out experiments/batch100``
 
-Reads ``experiments/records/<run_id>/attempts.jsonl`` (archived by the mining
+Reads ``experiments/<YYYYMMDD>-*/records/<run_id>/attempts.jsonl`` (archived by the
 loop), keeps the attempts whose run tag starts with ``--prefix`` and writes a
 single ``summary.csv`` + ``README.md``. No backtest is re-run.
 """
@@ -20,7 +20,15 @@ import pandas as pd
 from .config import PROJECT_ROOT
 from .markdown import md_table
 
-RECORDS = PROJECT_ROOT / "experiments" / "records"
+from .experiments_store import iter_experiment_dirs
+
+
+def record_dirs() -> list[Path]:
+    """All archived ``records/`` dirs inside date-ordered experiments."""
+    return [experiment / "records" for experiment in iter_experiment_dirs() if (experiment / "records").is_dir()]
+
+
+RECORDS = record_dirs()
 
 
 def _segment(attempt: dict, name: str, key: str):

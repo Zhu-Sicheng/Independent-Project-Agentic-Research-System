@@ -11,9 +11,9 @@ venv/
 # local runtime artifacts
 runs/
 pool/
-experiments/plots/
-experiments/stability/*/pnl_daily.csv
-experiments/xy/
+experiments/*/runs/
+experiments/*/stability/*/pnl_daily.csv
+experiments/.index/
 tests/_tmp/
 
 # research inputs / reports (keep the code repo small)

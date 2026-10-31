@@ -1,4 +1,4 @@
-# Published results: `systemv1-50h`
+# Published results: `systemv1_50`
 
 - runs: `sysv1-h1`, `sysv1-h2`, `sysv1-h3`, `sysv1-h4`, `sysv1-h5`, `sysv1-h6`, `sysv1-h7`
 - evaluated expressions: 53 (51 unique canonical forms)
@@ -66,19 +66,3 @@
 
 | expression | run | figure |
 |---|---|---|
-| `-1 * ts_mean(safe_div(close - low, high - low), 10)` | `sysv1-h2` | `figures/rank01_sysv1-h2_1.png` |
-| `-1 * ts_zscore(ts_returns(close, 5), 60) + -1 * safe_div(ts_mean(returns, 5), ts_std_dev(r` | `sysv1-h3` | `figures/rank02_sysv1-h3_2.png` |
-| `-1 * safe_div(ts_returns(close, 1), ts_std_dev(ts_returns(close, 1), 20))` | `sysv1-h5` | `figures/rank03_sysv1-h5_3.png` |
-| `-1 * ts_returns(close, 5) * safe_div(ts_mean(volume, 5), ts_mean(volume, 60))` | `sysv1-h6` | `figures/rank04_sysv1-h6_4.png` |
-| `-( -(safe_div(ts_mean(volume, 5), ts_mean(volume, 60))) * -(ts_delta(close, 5) / close) )` | `sysv1-h7` | `figures/rank05_sysv1-h7_5.png` |
-| `-1 * ts_returns(close, 5, 1)` | `sysv1-h4` | `figures/rank06_sysv1-h4_6.png` |
-| `-1 * ts_mean(safe_div(open - ts_delta(close, 1), ts_delta(close, 1)), 5)` | `sysv1-h2` | `figures/rank07_sysv1-h2_7.png` |
-| `-1 * ts_mean(cap, 21)` | `sysv1-h2` | `figures/rank08_sysv1-h2_8.png` |
-| `-1 * ts_mean(cap, 21)` | `sysv1-h4` | `figures/rank09_sysv1-h4_9.png` |
-| `-(safe_div(ts_delta(cap, 60), cap) * close)` | `sysv1-h7` | `figures/rank10_sysv1-h7_10.png` |
-| `-1 * (ts_mean(ts_returns(close, 1, 1) * ts_returns(close, 1, 1) * ts_returns(close, 1, 1),` | `sysv1-h4` | `figures/rank11_sysv1-h4_11.png` |
-| `-1 * safe_div(close - ts_min(low, 120), ts_max(high, 120) - ts_min(low, 120))` | `sysv1-h6` | `figures/rank12_sysv1-h6_12.png` |
-| `-1 * (ts_returns(cap, 60) - ts_returns(close, 60))` | `sysv1-h5` | `figures/rank13_sysv1-h5_13.png` |
-| `safe_div(ts_mean(volume, 5), ts_mean(volume, 60))` | `sysv1-h2` | `figures/rank14_sysv1-h2_14.png` |
-| `-1 * safe_div(close - ts_mean(close, 120), ts_mean(close, 120))` | `sysv1-h2` | `figures/rank15_sysv1-h2_15.png` |
-| `-1 * safe_div(ts_std_dev(safe_div(high - low, close), 5), ts_std_dev(safe_div(high - low, ` | `sysv1-h6` | `figures/rank16_sysv1-h6_16.png` |

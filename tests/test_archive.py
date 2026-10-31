@@ -41,15 +41,15 @@ class TestArchive(unittest.TestCase):
                 "## alpha_one\n\n**hypothesis**: first story\n", encoding="utf-8"
             )
 
-            old_runs, old_records = arch.RUNS_DIR, arch.RECORDS_DIR
-            arch.RUNS_DIR, arch.RECORDS_DIR = root / "runs", root / "records"
+            old_runs, old_records = arch.RUNS_DIR, arch.RECORDS_ROOT
+            arch.RUNS_DIR, arch.RECORDS_ROOT = root / "runs", root / "experiments"
             try:
                 texts = arch.archive_runs(["20260101-000000-test"])
             finally:
-                arch.RUNS_DIR, arch.RECORDS_DIR = old_runs, old_records
+                arch.RUNS_DIR, arch.RECORDS_ROOT = old_runs, old_records
 
             self.assertEqual(texts["alpha_one"], "first story")
-            dest = root / "records" / "20260101-000000-test"
+            dest = root / "experiments" / "20260101-mining-runs" / "records" / "20260101-000000-test"
             self.assertTrue((dest / "attempts.jsonl").exists())
             mapping = json.loads((dest / "hypotheses.json").read_text(encoding="utf-8"))
             self.assertEqual(mapping, {"alpha_one": "first story"})

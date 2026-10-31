@@ -124,7 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
     ledger.add_argument("--rebuild", action="store_true", help="rebuild from runs/")
     ledger.add_argument("--sort", default="sharpe_oos", help="column to sort by")
     ledger.add_argument("--top", type=int, default=30)
-    ledger.add_argument("--out", default=str(PROJECT_ROOT / "experiments" / "ledger.csv"))
+    ledger.add_argument("--out", default=str(PROJECT_ROOT / "experiments" / ".index" / "ledger.csv"))
 
     pool = sub.add_parser("pool", help="inspect the factor pool")
     pool.add_argument("--pool", default=str(PROJECT_ROOT / "pool"))

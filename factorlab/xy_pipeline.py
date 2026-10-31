@@ -37,7 +37,7 @@ from typing import Iterable, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AGENTS_ROOT = PROJECT_ROOT / "factorlab" / "agents"
-EXPERIMENTS = PROJECT_ROOT / "experiments" / "xy"
+EXPERIMENTS = PROJECT_ROOT / "experiments"
 IS_END_DEFAULT = "2020-12-31"
 
 #: mapping from the raw column names Agent 1 sees to our panel fields
@@ -729,6 +729,7 @@ def display_evaluation(
 # --------------------------------------------------------------------------- #
 def run_pipeline(
     mode: str = "offline",
+    experiment_name: Optional[str] = None,
     max_files: int = 40,
     max_rows: int = 20000,
     plots: bool = False,
@@ -768,7 +769,17 @@ def run_pipeline(
 
     started = time.time()
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-xy")
-    output_root = (out_root or EXPERIMENTS) / run_id
+    if out_root is not None:
+        output_root = Path(out_root) / run_id
+    else:
+        from .experiments_store import date_of, dated_experiment_dir, find_run_dir
+
+        existing = find_run_dir(run_id)
+        if existing is not None:
+            output_root = existing
+        else:
+            slug = experiment_name or run_id.split("-", 2)[-1]
+            output_root = dated_experiment_dir(slug, date_of(run_id))
     output_root.mkdir(parents=True, exist_ok=True)
     data_root = data_root or PROJECT_ROOT / "data" / "raw" / "data"
     panel_dir = panel_dir or PROJECT_ROOT / "data" / "processed" / "panel"
@@ -1092,6 +1103,8 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("--panel", default=None)
     parser.add_argument("--out-root", default=None)
     parser.add_argument("--run-id", default=None)
+    parser.add_argument("--experiment-name", default=None,
+                        help="slug for experiments/<YYYYMMDD>-<slug>/ (default: run id tag)")
     parser.add_argument(
         "--research-end", default=IS_END_DEFAULT,
         help="in-sample end; the optimisation loop never sees dates after it",
@@ -1150,6 +1163,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         data_root=Path(args.data_root) if args.data_root else None,
         panel_dir=Path(args.panel) if args.panel else None,
         run_id=args.run_id,
+        experiment_name=args.experiment_name,
         out_root=Path(args.out_root) if args.out_root else None,
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))

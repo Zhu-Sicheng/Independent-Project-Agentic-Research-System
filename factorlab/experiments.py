@@ -23,7 +23,7 @@ import pandas as pd
 
 from .config import PROJECT_ROOT
 
-LEDGER_DIR = PROJECT_ROOT / "experiments"
+LEDGER_DIR = PROJECT_ROOT / "experiments" / ".index"
 LEDGER_PATH = LEDGER_DIR / "ledger.csv"
 
 #: one row per attempt; ``*_full`` is the whole-sample backtest, ``*_is`` /
@@ -222,8 +222,8 @@ def _read_run(run_dir: Path) -> tuple[list[dict], Optional[dict], Optional[str]]
 
 
 def ledger_path_for(runs_dir: str | Path) -> Path:
-    """The ledger lives next to the runs root: ``<runs>/../experiments/ledger.csv``."""
-    return Path(runs_dir).resolve().parent / "experiments" / "ledger.csv"
+    """The derived ledger lives in ``experiments/.index/ledger.csv``."""
+    return PROJECT_ROOT / "experiments" / ".index" / "ledger.csv"
 
 
 def rebuild_ledger(
@@ -232,7 +232,7 @@ def rebuild_ledger(
 ) -> pd.DataFrame:
     """Rebuild the ledger from every ``runs/*/`` directory.
 
-    ``out`` defaults to ``<runs_dir>/../experiments/ledger.csv`` so a test or a
+    ``out`` defaults to ``experiments/.index/ledger.csv`` so a test or a
     custom ``--runs`` directory writes its own ledger instead of overwriting the
     project one.
     """

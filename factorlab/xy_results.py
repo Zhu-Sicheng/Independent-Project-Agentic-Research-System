@@ -6,13 +6,13 @@ cross-run layer that the research loop needs:
 * **incremental upsert** -- expressions are keyed by their canonical form; a
   re-evaluated expression updates the existing record (``revision`` increments)
   instead of creating a duplicate;
-* **event log** -- ``experiments/xy/results_events.jsonl`` is append-only, so
-  nothing is ever silently lost;
-* **materialised index** -- ``results_index.json`` / ``results.csv`` are rebuilt
-  from the per-run files and always reflect the latest state;
-* **publishing** -- ``experiments/published/<run_id>/`` collects the summary,
-  the top display figures and an overview chart so the result set can be
-  committed to git.
+* **event log** -- ``experiments/.index/results_events.jsonl`` is append-only,
+  so nothing is ever silently lost;
+* **materialised index** -- ``experiments/.index/results_index.json`` /
+  ``results.csv`` are rebuilt from the per-run files and always reflect the
+  latest state;
+* **publishing** -- a merged batch is written into its date-ordered experiment
+  directory (``experiments/<YYYYMMDD>-<name>/``) so it can be committed.
 
 ``python -m factorlab.xy_results --rebuild-index``
 ``python -m factorlab.xy_results --publish <run_id> [--top 10]``
@@ -32,13 +32,21 @@ from typing import Iterable, Optional
 import pandas as pd
 
 from .config import PROJECT_ROOT
+from .experiments_store import (
+    EXPERIMENTS,
+    dated_experiment_dir,
+    date_of,
+    find_run_dir,
+    iter_evaluation_files,
+)
 from .markdown import md_table
 
-RESULTS_DIR = PROJECT_ROOT / "experiments" / "xy"
-EVENTS_PATH = RESULTS_DIR / "results_events.jsonl"
-INDEX_PATH = RESULTS_DIR / "results_index.json"
-CSV_PATH = RESULTS_DIR / "results.csv"
-PUBLISHED_DIR = PROJECT_ROOT / "experiments" / "published"
+RESULTS_DIR = EXPERIMENTS
+INDEX_DIR = EXPERIMENTS / ".index"
+EVENTS_PATH = INDEX_DIR / "results_events.jsonl"
+INDEX_PATH = INDEX_DIR / "results_index.json"
+CSV_PATH = INDEX_DIR / "results.csv"
+PUBLISHED_DIR = EXPERIMENTS
 
 
 def _canonical(expression: str) -> str:
@@ -195,6 +203,8 @@ def record_events(
 # materialised index
 # --------------------------------------------------------------------------- #
 def _run_evaluation_files(results_dir: Path) -> list[Path]:
+    if Path(results_dir) == EXPERIMENTS:
+        return iter_evaluation_files()
     if not results_dir.exists():
         return []
     files = []
@@ -202,7 +212,18 @@ def _run_evaluation_files(results_dir: Path) -> list[Path]:
         path = run_dir / "evaluations.json"
         if path.exists():
             files.append(path)
+        nested = run_dir / "runs"
+        if nested.is_dir():
+            files.extend(sorted(p / "evaluations.json" for p in nested.iterdir() if (p / "evaluations.json").exists()))
     return files
+
+
+def _resolve_run_dir(run_id: str, results_dir: Path) -> Path:
+    if Path(results_dir) == EXPERIMENTS:
+        found = find_run_dir(run_id)
+        if found is not None:
+            return found
+    return Path(results_dir) / run_id
 
 
 def rebuild_index(
@@ -254,7 +275,7 @@ def rebuild_index(
 # publishing
 # --------------------------------------------------------------------------- #
 def _run_dir(run_id: str, results_dir: Path) -> Path:
-    return results_dir / run_id
+    return _resolve_run_dir(run_id, results_dir)
 
 
 def _overview_plot(rows: list[dict], out_path: Path, title: str) -> Optional[Path]:
@@ -311,7 +332,10 @@ def publish_run(
     evaluations = load_evaluations(source / "evaluations.json")
     if not evaluations:
         raise FileNotFoundError(f"no evaluations for run {run_id!r} under {source}")
-    target = Path(published_dir) / run_id
+    if str(published_dir) == str(EXPERIMENTS):
+        target = dated_experiment_dir(run_id, date_of(run_id))
+    else:
+        target = Path(published_dir) / run_id
     figures = target / "figures"
     for directory in (target, figures):
         directory.mkdir(parents=True, exist_ok=True)
@@ -425,7 +449,11 @@ def publish_combined(
     rows = _collect_rows(run_ids, results_dir)
     if not rows:
         raise FileNotFoundError(f"no evaluated expressions for runs {run_ids}")
-    target = Path(published_dir) / name
+    first_run = list(run_ids)[0] if run_ids else ""
+    if str(published_dir) == str(EXPERIMENTS):
+        target = dated_experiment_dir(name, date_of(first_run))
+    else:
+        target = Path(published_dir) / name
     figures = target / "figures"
     for directory in (target, figures):
         directory.mkdir(parents=True, exist_ok=True)

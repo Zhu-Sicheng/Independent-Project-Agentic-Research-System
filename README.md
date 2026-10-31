@@ -109,10 +109,13 @@ docs/
   agent_contracts.md   # JSON contracts between 2.1 / 2.2 / 3
   operators.md         # approved operator signatures and definitions
 experiments/
-  ledger.csv           # every attempt across runs, with IS/OOS/holdout metrics
-  reports/<run_id>.md  # per-run report (hypothesis, decision, yearly tables)
-  records/<run_id>/    # archived attempts.jsonl / run.json / hypotheses.json
-  batch10/             # ten-attempt audit: summary, plots, daily pnl, yearly tables
+  20261030-us-mining/      # date-ordered: one directory per experiment
+  20261030-llm-real/
+  20261031-batch10/        # batch10: attempts, figures, records/, reports/, stability/
+  20261031-batch100/       # 100-attempt batch: summary, records/, reports/, ledger.csv
+  20261031-systemv1_50/    # 50+ hypothesis merged-pipeline batch: summary, figures
+  README.md                # generated chronological index
+  .index/                  # derived ledger/results index (gitignored)
 ```
 
 ### 3. Data
@@ -524,7 +527,7 @@ Each run writes `runs/<run_id>/`:
 | `equity.png` | cumulative pnl, only when a factor is accepted |
 
 Every attempt — accepted **or abandoned** — is also flattened into one tracked
-table, `experiments/ledger.csv`, with full-sample, in-sample, out-of-sample,
+table, `experiments/.index/ledger.csv`, with full-sample, in-sample, out-of-sample,
 holdout and sub-universe metrics side by side. Real out-of-sample performance is
 therefore recorded even for rejected ideas. The ledger is rebuilt after each run
 and can be refreshed or queried on demand:
@@ -545,7 +548,7 @@ python -m factorlab view --run <run_id> --hypothesis <name> --no-plot
 ```
 
 Alongside the CSV, `--rebuild` copies each run's `report.md` to
-`experiments/reports/<run_id>.md`, so the narrative conclusions (hypothesis,
+`<date-ordered-experiment>/reports/<run_id>.md`, so the narrative conclusions (hypothesis,
 rationale, decision, per-year tables) are versioned and visible on GitHub while
 the raw `runs/` directory stays local.
 
@@ -555,7 +558,7 @@ reads the archived attempts and writes one table — no replay:
 
 ```powershell
 python -m factorlab.run_batch --worker a --sessions 5 --hypotheses 5 --max-evals 48
-python -m factorlab.batch_report --prefix p100 --out experiments/batch100
+python -m factorlab.batch_report --prefix p100 --out experiments/<YYYYMMDD>-batch100
 ```
 
 For batches that must be readable end-to-end, archive the structured artifacts
@@ -563,11 +566,11 @@ too:
 
 ```powershell
 python -m factorlab.archive_runs --runs <run_id> [<run_id> ...] `
-  --logs batch.log --batch experiments/batch10
+  --logs batch.log --batch experiments/20261031-batch10
 ```
 
 This copies `attempts.jsonl` / `run.json` / `report.md` / `panel_summary.json`
-into `experiments/records/<run_id>/`, recovers the natural-language hypotheses
+into `experiments/<YYYYMMDD>-mining-runs/records/<run_id>/`, recovers the natural-language hypotheses
 (from the report or from the run log) into `hypotheses.json`, and regenerates the
 batch `README.md` with the hypothesis text next to every result.
 
@@ -596,7 +599,7 @@ Sharpe spans, `min_pnl_corr`, `flags`) to Agent 3, which is instructed never to
 accept a factor whose sub-universe flips sign or whose variants decorrelate.
 Disable it for a run with `--no-stability`.
 
-Outputs go to `experiments/stability/<run_id>__<factor>/`: `pnl.png` puts the
+Outputs go to `<experiment>/stability/<run_id>__<factor>/`: `pnl.png` puts the
 baseline and every check on a single axes (colour-coded by check group),
 plus `metrics.csv`, `meta.json` (expression + baseline config) and `README.md`. They never overwrite the
 batch figures or the single-run view.
@@ -648,7 +651,7 @@ ones and re-draws only missing figures (`--no-incremental` recomputes,
 `--force` re-evaluates known expressions). Records are keyed by their canonical
 expression and written through an upsert: re-evaluating a factor updates the
 record and bumps its `revision` instead of creating a duplicate. The shared
-result layer under `experiments/xy/` is:
+result layer under `experiments/.index/` is:
 
 | file | role |
 |---|---|
@@ -656,18 +659,23 @@ result layer under `experiments/xy/` is:
 | `results_index.json` | materialised latest state per run/expression |
 | `results.csv` | flat table of the same index |
 
+Each experiment lives in `experiments/<YYYYMMDD>-<slug>/` so the experiments folder is
+chronological; raw run artifacts stay under `<experiment>/runs/` (gitignored) while the
+summary, figures, reports and archived records are committed. Publishing writes straight
+into that dated directory.
+
 Publish a run (or several merged) for sharing and git:
 
 ```powershell
 python -m factorlab.xy_results --rebuild-index
 python -m factorlab.xy_results --publish sysv1-h1 --top 10
-python -m factorlab.xy_results --publish-combined systemv1-50h     --runs sysv1-h1,sysv1-h2,sysv1-h3 --top 15
+python -m factorlab.xy_results --publish-combined systemv1_50     --runs sysv1-h1,sysv1-h2,sysv1-h3 --top 15
 ```
 
-`experiments/published/<name>/` then holds `summary.csv`, the run report, the
+`experiments/<YYYYMMDD>-<name>/` then holds `summary.csv`, the run report, the
 top display figures and an IS-vs-OOS overview chart.
 
-Outputs go to `experiments/xy/<run_id>/` (gitignored): `agent1|2|3_round*/`
+Outputs go to `experiments/<YYYYMMDD>-<slug>/` (gitignored): `agent1|2|3_round*/`
 artifacts, `research_memory.sqlite3` (feedback records), `display/<expr_id>/`
 (OOS/holdout figure + full-panel stability), `evaluations.json`, `run.json`,
 `report.md`. The report keeps the two evidence layers separate: an **in-sample
@@ -800,10 +808,13 @@ docs/
   agent_contracts.md   # 2.1 / 2.2 / 3 的 JSON 接口契约
   operators.md         # 白名单算子的签名与定义
 experiments/
-  ledger.csv           # 跨 run 的全部尝试，含 IS/OOS/holdout 指标
-  reports/<run_id>.md  # 每次 run 的报告（假设、决策、分年表）
-  records/<run_id>/    # 归档的 attempts.jsonl / run.json / hypotheses.json
-  batch10/             # 十次实验审计：汇总、图、日频 pnl、分年表
+  20261030-us-mining/      # 按日期排序：每个实验一个目录
+  20261030-llm-real/
+  20261031-batch10/        # batch10：attempts、图、records/、reports/、stability/
+  20261031-batch100/       # 100 次尝试批次：summary、records/、reports/、ledger.csv
+  20261031-systemv1_50/    # 50+ 假设合并流水线批次：summary、图
+  README.md                # 自动生成的时间顺序索引
+  .index/                  # 派生的 ledger / 结果索引（已 gitignore）
 ```
 
 ### 3. 数据模块
@@ -1161,7 +1172,7 @@ pool.report()                      # markdown
 | `equity.png` | 入池因子的累计净值（仅当有因子被接受） |
 
 所有尝试——**无论接受还是放弃**——还会被拍平成一张受版本管理的表
-`experiments/ledger.csv`，把全样本、样本内、样本外、holdout、子全集的指标并排放：
+`experiments/.index/ledger.csv`，把全样本、样本内、样本外、holdout、子全集的指标并排放：
 即使因子被否，真实的样本外表现也留档。每次 run 结束自动重建，也可手动刷新/查询：
 
 ```powershell
@@ -1177,7 +1188,7 @@ python -m factorlab view --run 20261031-083828-e2e
 python -m factorlab view --run <run_id> --hypothesis <name> --no-plot
 ```
 
-`--rebuild` 同时把每次 run 的 `report.md` 复制到 `experiments/reports/<run_id>.md`，
+`--rebuild` 同时把每次 run 的 `report.md` 复制到 `<date-ordered-experiment>/reports/<run_id>.md`，
 于是「假设—理由—决策—分年表」这些文字结论也进 git、在 GitHub 上可见，而原始 `runs/` 仍留在本地。
 
 长批次可以用 `factorlab.run_batch` 驱动（重复多个短 session，可多进程并行），
@@ -1185,18 +1196,18 @@ python -m factorlab view --run <run_id> --hypothesis <name> --no-plot
 
 ```powershell
 python -m factorlab.run_batch --worker a --sessions 5 --hypotheses 5 --max-evals 48
-python -m factorlab.batch_report --prefix p100 --out experiments/batch100
+python -m factorlab.batch_report --prefix p100 --out experiments/<YYYYMMDD>-batch100
 ```
 
 需要完整留档一个批次时，用归档命令：
 
 ```powershell
 python -m factorlab.archive_runs --runs <run_id> [<run_id> ...] `
-  --logs batch.log --batch experiments/batch10
+  --logs batch.log --batch experiments/20261031-batch10
 ```
 
 它把 `attempts.jsonl` / `run.json` / `report.md` / `panel_summary.json` 复制到
-`experiments/records/<run_id>/`，从报告或日志里恢复自然语言假设写入 `hypotheses.json`，
+`experiments/<YYYYMMDD>-mining-runs/records/<run_id>/`，从报告或日志里恢复自然语言假设写入 `hypotheses.json`，
 并重新生成批次 `README.md`（每条结果旁边附假设原文）。
 
 #### 稳定性检验
@@ -1221,7 +1232,7 @@ python -m factorlab.stability --index        # 重建汇总表
 window 的 Sharpe 区间、`min_pnl_corr`、`flags`）交给 Agent 3；评审规则明确：子全集翻转符号、
 或变体 PnL 失去相关性的因子不得 accept。单次运行可用 `--no-stability` 关闭。
 
-结果写到 `experiments/stability/<run_id>__<factor>/`（`pnl.png` 把原配置与所有检验曲线画在
+结果写到 `<experiment>/stability/<run_id>__<factor>/`（`pnl.png` 把原配置与所有检验曲线画在
 同一张图上、按检验组用颜色区分，另有 `metrics.csv`、`meta.json`（表达式与基线配置）、
 `README.md`），**不覆盖**批次图与单次 run 的图。
 
@@ -1265,7 +1276,7 @@ LLM 模式下每个 agent 的 `--llm-max-turns` / `--llm-tool-calls` / `--llm-to
 回测结果支持增量更新与增量修改：用同一个 `--run-id` 重跑会恢复已有 `evaluations.json`，
 跳过已知表达式、只评估新增的，并只补画缺失的展示图（`--no-incremental` 全部重算，
 `--force` 重新评估已知表达式）。记录以 canonical 表达式为主键做 upsert：重新评估同一因子
-会更新记录并把 `revision` 加一，而不是产生重复记录。共享结果层在 `experiments/xy/`：
+会更新记录并把 `revision` 加一，而不是产生重复记录。共享结果层在 `experiments/.index/`：
 
 | 文件 | 作用 |
 |---|---|
@@ -1273,18 +1284,22 @@ LLM 模式下每个 agent 的 `--llm-max-turns` / `--llm-tool-calls` / `--llm-to
 | `results_index.json` | 以 run/表达式为键的物化最新状态 |
 | `results.csv` | 同一份索引的扁平表 |
 
+每个实验存放在 `experiments/<YYYYMMDD>-<slug>/`，因此 experiments 目录按时间顺序排列；
+原始运行产物留在 `<experiment>/runs/`（已 gitignore），summary、图、报告和归档记录进入 git。
+发布时直接写入对应的日期目录。
+
 发布单次或合并多次运行（用于分享与提交 git）：
 
 ```powershell
 python -m factorlab.xy_results --rebuild-index
 python -m factorlab.xy_results --publish sysv1-h1 --top 10
-python -m factorlab.xy_results --publish-combined systemv1-50h     --runs sysv1-h1,sysv1-h2,sysv1-h3 --top 15
+python -m factorlab.xy_results --publish-combined systemv1_50     --runs sysv1-h1,sysv1-h2,sysv1-h3 --top 15
 ```
 
-`experiments/published/<name>/` 内含 `summary.csv`、运行报告、排名靠前的展示图，以及
+`experiments/<YYYYMMDD>-<name>/` 内含 `summary.csv`、运行报告、排名靠前的展示图，以及
 IS-vs-OOS 总览图。
 
-结果写到 `experiments/xy/<run_id>/`（已 gitignore）：`agent1|2|3_round*/` 产物、
+结果写到 `experiments/<YYYYMMDD>-<slug>/`（已 gitignore）：`agent1|2|3_round*/` 产物、
 `research_memory.sqlite3`（反馈记录）、`display/<expr_id>/`（OOS/holdout 图 + 全样本
 稳定性）、`evaluations.json`、`run.json`、`report.md`。报告把两层证据分开：
 **in-sample-only 的优化表**与**展示层的 OOS/holdout 表**。翻译层接受对方的任意
