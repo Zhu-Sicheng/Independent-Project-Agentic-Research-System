@@ -2,19 +2,26 @@
 
 The three research agents (data understanding -> natural-language hypotheses ->
 constrained expressions) come from ``factorlab/agents/agent{1,2,3}`` and the
-shared ``research`` package. They produce expressions; everything after that
-(backtest grid, IS/OOS/holdout split, stability battery, factor pool, reviewer)
-is ours.
+shared ``research`` package. Everything after the expression is ours.
 
-Flow::
+Data isolation (strict):
 
-    agent1 (EDA, data contract)  -> agent2 (ideas.json) -> agent3 (expressions.json)
-        -> translate contract field names to panel fields
-        -> our GridSearch (decay / transform / cap filter / windows, IS selection)
-        -> our stability battery
-        -> our reviewer (accept / optimize / abandon) -> our factor pool
+* **optimisation loop** -- the panel is cut at ``research_end`` (the in-sample
+  end). The grid selects on in-sample Sharpe, the stability battery runs on the
+  same IS panel, and the reviewer decides on IS evidence only. Out-of-sample and
+  holdout dates never enter this loop; the agents only see IS metrics.
+* **display layer** -- after the loop, the IS-chosen configuration is re-applied
+  to the full panel. OOS/holdout metrics are computed here and are drawn in the
+  figures, but they are never written back into any agent feedback.
 
-``python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 24``
+Feedback to the agents: after each round, the in-sample evidence (metrics +
+stability flags + the reviewer's reasoning) is appended to the shared research
+memory database, which Agent 3 reads through ``search_memory`` when it revises
+the expressions. In offline mode Agent 3 only emits fixed templates, so the
+loop falls back to the reviewer's own ``optimize`` suggestion (sign flip /
+smoothing) instead.
+
+``python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16``
 """
 
 from __future__ import annotations
@@ -31,6 +38,7 @@ from typing import Iterable, Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AGENTS_ROOT = PROJECT_ROOT / "factorlab" / "agents"
 EXPERIMENTS = PROJECT_ROOT / "experiments" / "xy"
+IS_END_DEFAULT = "2020-12-31"
 
 #: mapping from the raw column names Agent 1 sees to our panel fields
 FIELD_MAP: dict[str, str] = {
@@ -73,6 +81,14 @@ FIELD_MAP: dict[str, str] = {
 
 _IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _FIELD_CALL_RE = re.compile(r'field\(\s*"([^"]+)"\s*\)')
+
+#: the reviewer must not require out-of-sample evidence inside the loop
+IS_PROTOCOL = (
+    "IS-only evaluation: the panel was cut at the in-sample end, so no "
+    "out-of-sample or holdout numbers exist for this decision. Judge the story, "
+    "the in-sample metrics and the stability battery only; never ask for or "
+    "invent OOS numbers."
+)
 
 
 def ensure_agents_importable() -> None:
@@ -226,8 +242,64 @@ def run_agent3(
 
 
 # --------------------------------------------------------------------------- #
-# our evaluation
+# data isolation helpers
 # --------------------------------------------------------------------------- #
+def split_is_panel(panel, is_end: str = IS_END_DEFAULT):
+    """The only panel the optimisation loop may see."""
+    return panel.subset(end=is_end)
+
+
+def _canonical(expression: str) -> str:
+    from factorlab.expr import parser as P
+
+    return P.to_string(P.parse(expression))
+
+
+def _load_factor(panel, expression: str, windows: Optional[list[int]] = None):
+    """Evaluate ``expression`` on ``panel`` with the given window substitution."""
+    from factorlab.expr import parser as P
+    from factorlab.expr.evaluator import evaluate
+
+    ast = P.parse(expression)
+    slots = P.collect_windows(ast)
+    if windows and len(slots) == len(windows):
+        ast = P.substitute_windows(ast, [int(w) for w in windows])
+    return evaluate(ast, panel)
+
+
+def _grid_settings(grid_summary: dict):
+    import math
+
+    from factorlab.config import BacktestSettings
+
+    best = grid_summary.get("best") or {}
+    cap = best.get("cap_filter")
+    try:
+        cap = None if cap is None else float(cap)
+    except (TypeError, ValueError):
+        cap = None
+    if cap is not None and not math.isfinite(cap):
+        cap = None  # the grid stores the "no cap filter" cell as NaN in a DataFrame
+    return BacktestSettings(
+        decay=int(best.get("decay") or 0),
+        transform=str(best.get("transform") or "none"),
+        cap_filter=cap,
+    )
+
+
+def _json_safe(value):
+    """Replace NaN/Inf with None so the record file is strict JSON."""
+    import math
+
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def hypothesis_from_idea(idea: dict) -> dict:
     direction = idea.get("expected_return_direction", "positive")
     return {
@@ -241,94 +313,86 @@ def hypothesis_from_idea(idea: dict) -> dict:
     }
 
 
-def evaluate_candidates(
-    panel,
+# --------------------------------------------------------------------------- #
+# round loop: in-sample evidence only
+# --------------------------------------------------------------------------- #
+def evaluate_is_candidates(
+    panel_is,
     candidates: Iterable[dict],
     ideas: dict,
+    seen: set,
     run_id: str,
-    output_root: Path,
-    max_evals: int = 24,
+    round_index: int,
+    grid,
+    critic,
     max_rounds: int = 1,
-    run_stability_checks: bool = True,
     verbose: bool = True,
 ) -> list[dict]:
-    """Run every accepted Agent-3 expression through our grid, stability and reviewer."""
-    from factorlab.agents.critic import CriticAgent
-    from factorlab.agents.llm import build_client
-    from factorlab.backtest.grid import GridSearch
-    from factorlab.config import BacktestSettings, GridConfig, LLMSettings, US_EQUITY_SPLIT
+    """Evaluate new Agent-3 expressions with IS data only.
+
+    Returns records with the in-sample grid evidence, the stability battery on
+    the IS panel and the reviewer decision. Nothing here can see an
+    out-of-sample date.
+    """
     from factorlab.expr.spec import FactorSpec
     from factorlab.expr.validate import validate_expression
-    from factorlab.pool.pool import FactorPool
-    from factorlab.stability import run_stability, stability_summary
-
-    grid_config = GridConfig(max_evals=max_evals)
-    grid = GridSearch(panel, grid_config, BacktestSettings(), split=US_EQUITY_SPLIT)
-    critic = CriticAgent(build_client(LLMSettings.from_env()))
-    pool = FactorPool(output_root / "pool")
+    from factorlab.stability import stability_summary
 
     records: list[dict] = []
     for candidate in candidates:
         status = str(candidate.get("status", ""))
-        if not (candidate.get("ready_for_agent4_factor_evaluation") or status.startswith("research_validated")):
+        if not (
+            candidate.get("ready_for_agent4_factor_evaluation")
+            or status.startswith("research_validated")
+            or status.startswith("critic_revision")
+        ):
             continue
-        idea = ideas.get(candidate["idea_id"], {})
-        hypothesis = hypothesis_from_idea(idea)
+        idea = ideas.get(candidate.get("idea_id", ""), {})
+        hypothesis = candidate.get("hypothesis") or hypothesis_from_idea(idea)
         record = {
-            "expression_id": candidate["expression_id"],
-            "idea_id": candidate["idea_id"],
-            "hypothesis": hypothesis["name"],
-            "expression_raw": candidate["expression"],
+            "round": round_index,
+            "expression_id": candidate.get("expression_id"),
+            "idea_id": candidate.get("idea_id"),
+            "hypothesis": hypothesis.get("name"),
+            "expression_raw": candidate.get("expression"),
             "status": "rejected_before_backtest",
         }
-        rows: list[dict] = []
         try:
             expression = translate_expression(candidate["expression"])
+            canonical = _canonical(expression)
+            if canonical in seen:
+                continue
+            seen.add(canonical)
             record["expression"] = expression
-            # Agent 3 may use any integer lookback (its budget allows 1..252); keep
-            # those windows as given instead of forcing our grid horizons.
-            report = validate_expression(expression, panel, strict_windows=False, min_window=1)
+            report = validate_expression(expression, panel_is, strict_windows=False, min_window=1)
             if not report.ok:
                 record["error"] = "; ".join(report.errors)
                 records.append(record)
                 continue
             spec = FactorSpec(kind="expression", expression=expression)
             if verbose:
-                print(f"  grid: {expression}", flush=True)
+                print(f"  [IS] grid: {expression}", flush=True)
             grid_result = grid.run_spec(spec)
-            grid_summary = grid_result.summary()
-            record["grid"] = {
+            summary = grid_result.summary()
+            record["is"] = {
                 "n_evals": grid_result.n_evals,
-                "best": grid_result.best.metrics,
-                "in_sample": (grid_result.best.segments or {}).get("in_sample"),
-                "out_of_sample": (grid_result.best.segments or {}).get("oos"),
-                "holdout": (grid_result.best.segments or {}).get("holdout"),
-                "config": {
-                    key: grid_summary.get("best", {}).get(key)
-                    for key in ("decay", "transform", "cap_filter", "windows")
-                },
+                "metrics": grid_result.best.metrics,
+                "config": summary.get("best"),
             }
         except Exception as exc:  # pragma: no cover - defensive
             record["error"] = f"{type(exc).__name__}: {exc}"
             records.append(record)
             continue
 
-        # stability battery (same signal, different implementation knobs)
         stability = None
         try:
             attempt_like = {
-                # keep the plot title ASCII: Agent-2 titles are Chinese and the
-                # plotting font has no CJK glyphs
-                "hypothesis": candidate["expression_id"],
+                "hypothesis": candidate.get("expression_id"),
                 "spec": spec.to_dict(),
-                "grid": grid_summary,
+                "grid": summary,
             }
-            stability = stability_summary(panel, attempt_like)
-            record["stability"] = stability
-            if run_stability_checks:
-                stability_dir = output_root / "stability" / candidate["expression_id"]
-                run_stability(panel, attempt_like, run_id, out_dir=stability_dir)
-                record["stability_dir"] = str(stability_dir)
+            stability = stability_summary(panel_is, attempt_like)
+            record["stability_is"] = stability
         except Exception as exc:  # pragma: no cover - defensive
             record["stability_error"] = f"{type(exc).__name__}: {exc}"
 
@@ -337,32 +401,198 @@ def evaluate_candidates(
             spec,
             grid_result,
             [],
-            panel,
+            panel_is,
             max_rounds=max_rounds,
             stability=stability,
+            extra={"evaluation_protocol": IS_PROTOCOL, "round": round_index},
         )
         record["decision"] = review.get("decision")
         record["reasoning"] = review.get("reasoning", "")
         record["review_source"] = review.get("source")
+        record["suggested_changes"] = review.get("suggested_changes", [])
+        revised = review.get("revised")
+        if isinstance(revised, dict) and revised.get("expression"):
+            record["revised_expression"] = str(revised["expression"])
+            record["revised_explanation"] = revised.get("explanation", "")
         record["status"] = "evaluated"
-
-        if review.get("decision") == "accept":
-            rec = pool.add(
-                spec=spec,
-                hypothesis=hypothesis,
-                grid=grid_result,
-                run_id=run_id,
-                name=f"{hypothesis.get('family') or 'xy'}_{candidate['expression_id']}",
-                tags=["xy_agent2", review.get("source", "unknown")],
-                notes=review.get("reasoning", ""),
-            )
-            record["factor_id"] = rec.id
-            if verbose:
-                print(f"    accepted -> {rec.id}", flush=True)
-        elif verbose:
-            print(f"    {review.get('decision')}: {record['reasoning'][:120]}", flush=True)
+        if verbose:
+            print(f"    {record['decision']}: {str(record['reasoning'])[:120]}", flush=True)
         records.append(record)
+    return records
 
+
+def write_feedback(memory_db: Path, records: list[dict], run_id: str, research_end: str) -> int:
+    """Append the in-sample evidence to the shared research memory.
+
+    Agent 3 reads these records through ``search_memory`` on the next round and
+    can revise the expressions accordingly. Only IS numbers are written.
+    """
+    ensure_agents_importable()
+    from research.memory import ResearchMemory
+
+    written = 0
+    memory = ResearchMemory(memory_db)
+    try:
+        for record in records:
+            if record.get("status") != "evaluated":
+                continue
+            is_metrics = ((record.get("is") or {}).get("metrics")) or {}
+            stability = record.get("stability_is") or {}
+            payload = {
+                "stage": f"ours_is_evaluation_round_{record.get('round', 0)}",
+                "expression": record.get("expression"),
+                "in_sample": {
+                    key: is_metrics.get(key)
+                    for key in (
+                        "sharpe",
+                        "ann_return",
+                        "ann_vol",
+                        "turnover",
+                        "max_drawdown",
+                        "rank_ic",
+                        "pearson_ic",
+                    )
+                },
+                "stability": {
+                    key: stability.get(key)
+                    for key in (
+                        "baseline_sharpe",
+                        "subuniverse_sharpe",
+                        "subuniverse_delta",
+                        "decay_sharpe_span",
+                        "transform_sharpe_span",
+                        "window_sharpe_span",
+                        "min_pnl_corr",
+                        "flags",
+                    )
+                },
+                "reviewer": {
+                    "decision": record.get("decision"),
+                    "reasoning": record.get("reasoning"),
+                    "suggested_changes": record.get("suggested_changes", []),
+                },
+                "instruction": (
+                    "These are in-sample numbers only. Revise the expression to improve the "
+                    "in-sample evidence and remove the stability flags; do not assume any "
+                    "out-of-sample result."
+                ),
+            }
+            memory.append(
+                kind="attempt",
+                run_id=run_id,
+                logical_id=f"{record.get('expression_id')}_is_feedback",
+                dataset_id=record.get("_dataset_id") or "ds_market",
+                family=record.get("_family") or "unknown",
+                data_end=research_end,
+                outcome="inconclusive",
+                payload=payload,
+            )
+            written += 1
+    finally:
+        memory.close()
+    return written
+
+
+def candidates_from_revisions(records: list[dict]) -> list[dict]:
+    """Offline fallback: turn the reviewer's ``optimize`` suggestions into candidates."""
+    candidates = []
+    for record in records:
+        revised = record.get("revised_expression")
+        if not revised:
+            continue
+        candidates.append(
+            {
+                "expression_id": f"revised_{record['expression_id']}",
+                "idea_id": record.get("idea_id"),
+                "expression": revised,
+                "status": "critic_revision",
+                "hypothesis": None,
+            }
+        )
+    return candidates
+
+
+# --------------------------------------------------------------------------- #
+# display layer: OOS/holdout are allowed here and only here
+# --------------------------------------------------------------------------- #
+def display_evaluation(
+    panel_full,
+    records: list[dict],
+    run_id: str,
+    output_root: Path,
+    split=None,
+    verbose: bool = True,
+) -> list[dict]:
+    """Re-apply the IS-chosen configuration to the full panel and draw it.
+
+    The output here is presentation material only: it is never passed back to
+    the agents or the reviewer.
+    """
+    from factorlab.backtest.engine import run_backtest_with_subuniverse
+    from factorlab.backtest.split import resolve_split, segment_metrics
+    from factorlab.config import US_EQUITY_SPLIT
+    from factorlab.stability import run_stability
+    from factorlab.view import draw_panels
+
+    split = split or US_EQUITY_SPLIT
+    masks = resolve_split(panel_full.dates, split)
+    display_root = output_root / "display"
+    display_root.mkdir(parents=True, exist_ok=True)
+
+    for record in records:
+        if record.get("status") != "evaluated" or not record.get("expression"):
+            continue
+        try:
+            config = (record.get("is") or {}).get("config") or {}
+            settings = _grid_settings({"best": config})
+            windows = config.get("windows") or []
+            factor = _load_factor(panel_full, record["expression"], windows)
+            result = run_backtest_with_subuniverse(factor, panel_full, settings)
+            result.segments = segment_metrics(
+                result.pnl, result.turnover, result.ic, factor, masks
+            )
+            # segment_metrics aliases full=is when no full mask exists; the display
+            # layer must show the true full-sample metric instead
+            from factorlab.backtest import metrics as _M
+
+            result.segments["full"] = _M.summarise_pnl(
+                result.pnl, result.turnover, result.ic, ann=settings.ann
+            )
+            target = display_root / str(record["expression_id"])
+            target.mkdir(parents=True, exist_ok=True)
+            draw_panels(
+                result.pnl,
+                result.turnover,
+                result.ic,
+                result.segments,
+                masks,
+                target / "pnl.png",
+                f"{record['expression_id']} | {record['expression']}",
+            )
+            attempt_like = {
+                "hypothesis": record["expression_id"],
+                "spec": {"kind": "expression", "expression": record["expression"]},
+                "grid": {"best": config},
+            }
+            stability_dir = run_stability(
+                panel_full, attempt_like, run_id, out_dir=target / "stability"
+            )
+            record["display"] = {
+                "segments": result.segments,
+                "figure": str(target / "pnl.png"),
+                "stability_dir": str(stability_dir),
+                "oos_sharpe": (result.segments.get("oos") or {}).get("sharpe"),
+                "holdout_sharpe": (result.segments.get("holdout") or {}).get("sharpe"),
+            }
+            if verbose:
+                oos = record["display"]["oos_sharpe"]
+                is_sharpe = (result.segments.get("is") or {}).get("sharpe")
+                print(
+                    f"  [display] {record['expression_id']}: IS {is_sharpe:+.2f} | OOS {oos:+.2f}",
+                    flush=True,
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            record["display_error"] = f"{type(exc).__name__}: {exc}"
     return records
 
 
@@ -374,18 +604,24 @@ def run_pipeline(
     max_files: int = 40,
     max_rows: int = 20000,
     plots: bool = False,
-    research_end: str = "2020-12-31",
-    max_evals: int = 24,
+    research_end: str = IS_END_DEFAULT,
+    max_evals: int = 16,
     max_expressions_per_idea: int = 1,
-    run_stability_checks: bool = True,
+    rounds: int = 2,
     data_root: Optional[Path] = None,
     panel_dir: Optional[Path] = None,
     run_id: Optional[str] = None,
     out_root: Optional[Path] = None,
     verbose: bool = True,
 ) -> dict:
+    from factorlab.agents.critic import CriticAgent
+    from factorlab.agents.llm import build_client
+    from factorlab.backtest.grid import GridSearch
+    from factorlab.config import BacktestSettings, GridConfig, LLMSettings
     from factorlab.data import load_processed
+    from factorlab.expr.spec import FactorSpec
     from factorlab.markdown import md_table
+    from factorlab.pool.pool import FactorPool
 
     started = time.time()
     run_id = run_id or time.strftime("%Y%m%d-%H%M%S-xy")
@@ -402,96 +638,258 @@ def run_pipeline(
         if verbose:
             print(message, flush=True)
 
-    say(f"run {run_id}: mode={mode}, data={data_root}")
-    # ---- his agents ----
+    say(f"run {run_id}: mode={mode}, rounds={rounds}, research_end={research_end}")
+    say(f"data: {data_root}")
+
+    # ---- his agents: data understanding + ideas (cutoff = IS end) ----
     agent1_dir, agent1_report = run_agent1(
         output_root / "agent1", data_root, research_end, mode=mode,
         max_files=max_files, max_rows=max_rows, plots=plots,
     )
-    say(f"agent1: {agent1_dir} status={agent1_report.get('status')}")
-
+    say(f"agent1: {agent1_dir.name} status={agent1_report.get('status')}")
     agent2_dir, agent2_result = run_agent2(
         agent1_dir, output_root / "agent2", memory_db, operator_file, mode=mode,
     )
-    say(f"agent2: {agent2_dir} status={agent2_result.get('status')} ideas={len(agent2_result.get('ideas', []))}")
+    ideas_list = agent2_result.get("ideas", [])
+    ideas = {idea["idea_id"]: idea for idea in ideas_list}
+    say(f"agent2: {agent2_dir.name} status={agent2_result.get('status')} ideas={len(ideas_list)}")
 
-    agent3_dir, agent3_result = run_agent3(
-        agent1_dir, agent2_dir, output_root / "agent3", memory_db, operator_file,
-        mode=mode, max_expressions_per_idea=max_expressions_per_idea,
-    )
-    say(
-        f"agent3: {agent3_dir} status={agent3_result.get('status')} "
-        f"expressions={len(agent3_result.get('expressions', []))}"
-    )
+    # ---- our in-sample-only optimisation loop ----
+    panel_full = load_processed(panel_dir)
+    panel_is = split_is_panel(panel_full, research_end)
+    say(f"panel: full {panel_full.shape} -> IS only {panel_is.shape} (cut at {research_end})")
+    grid = GridSearch(panel_is, GridConfig(max_evals=max_evals), BacktestSettings(), split=None)
+    critic = CriticAgent(build_client(LLMSettings.from_env()))
 
-    # ---- our evaluation ----
-    panel = load_processed(panel_dir)
-    ideas = {idea["idea_id"]: idea for idea in agent2_result.get("ideas", [])}
-    records = evaluate_candidates(
-        panel,
-        agent3_result.get("expressions", []),
-        ideas,
-        run_id,
-        output_root,
-        max_evals=max_evals,
-        run_stability_checks=run_stability_checks,
-        verbose=verbose,
-    )
+    agent3_runs: list[str] = []
+    records: list[dict] = []
+    seen: set[str] = set()
+    candidates: list[dict] = []
+    agent3_result: dict = {}
 
+    def annotate(new_records: list[dict]) -> None:
+        for record in new_records:
+            idea = ideas.get(record.get("idea_id", ""), {})
+            record["_dataset_id"] = idea.get("dataset_id", "ds_market")
+            record["_family"] = idea.get("family", "unknown")
+
+    round_index = 0
+    while round_index < max(1, rounds):
+        say(f"round {round_index}: agent3 ...")
+        agent3_dir, agent3_result = run_agent3(
+            agent1_dir, agent2_dir, output_root / f"agent3_round{round_index}",
+            memory_db, operator_file, mode=mode,
+            max_expressions_per_idea=max_expressions_per_idea,
+        )
+        agent3_runs.append(str(agent3_dir))
+        candidates = agent3_result.get("expressions", [])
+        say(
+            f"round {round_index}: agent3 {agent3_dir.name} status={agent3_result.get('status')} "
+            f"expressions={len(candidates)}"
+        )
+        for candidate in candidates:
+            idea = ideas.get(candidate.get("idea_id", ""), {})
+            candidate.setdefault("_dataset_id", idea.get("dataset_id"))
+            candidate.setdefault("_family", idea.get("family"))
+        new_records = evaluate_is_candidates(
+            panel_is, candidates, ideas, seen, run_id, round_index, grid, critic,
+            max_rounds=max(1, rounds), verbose=verbose,
+        )
+        annotate(new_records)
+        records.extend(new_records)
+        say(f"round {round_index}: {len(new_records)} new evaluations (IS only)")
+
+        if round_index + 1 >= rounds:
+            break
+
+        revisions: list[dict] = []
+        if mode == "llm":
+            written = write_feedback(memory_db, new_records, run_id, research_end)
+            say(f"round {round_index}: wrote {written} in-sample feedback records to memory")
+        revisions = candidates_from_revisions(new_records)
+        if mode != "llm" and not revisions:
+            say(f"round {round_index}: no offline revisions; stopping the loop")
+            break
+        if revisions:
+            say(f"round {round_index}: {len(revisions)} reviewer revisions queued for round {round_index + 1}")
+            revision_records = evaluate_is_candidates(
+                panel_is, revisions, ideas, seen, run_id, round_index + 1, grid, critic,
+                max_rounds=max(1, rounds), verbose=verbose,
+            )
+            annotate(revision_records)
+            records.extend(revision_records)
+            say(f"round {round_index + 1}: {len(revision_records)} revision evaluations (IS only)")
+            break
+        round_index += 1
+
+    # ---- display layer: OOS/holdout computed and drawn here, never fed back ----
+    records = display_evaluation(panel_full, records, run_id, output_root, verbose=verbose)
+
+    # ---- factor pool for accepted candidates (IS-selected configuration) ----
+    pool = FactorPool(output_root / "pool")
+    accepted = 0
+    for record in records:
+        if record.get("decision") != "accept" or not record.get("expression"):
+            continue
+        try:
+            spec = FactorSpec(kind="expression", expression=record["expression"])
+            hypothesis = hypothesis_from_idea(ideas.get(record.get("idea_id", ""), {}))
+            grid_result = grid.run_spec(spec)
+            display = record.get("display") or {}
+            rec = pool.add(
+                spec=spec,
+                hypothesis=hypothesis,
+                grid=grid_result,
+                run_id=run_id,
+                name=f"{hypothesis.get('family') or 'xy'}_{record['expression_id']}",
+                tags=["xy_agent2", record.get("review_source", "unknown")],
+                notes=(
+                    f"IS-only decision ({record.get('round')} rounds). "
+                    f"Display: OOS {display.get('oos_sharpe')}, "
+                    f"holdout {display.get('holdout_sharpe')} (presentation only)."
+                ),
+            )
+            record["factor_id"] = rec.id
+            accepted += 1
+        except Exception as exc:  # pragma: no cover - defensive
+            record["pool_error"] = f"{type(exc).__name__}: {exc}"
+
+    public_records = [
+        _json_safe({key: value for key, value in record.items() if not key.startswith("_")})
+        for record in records
+    ]
     (output_root / "evaluations.json").write_text(
-        json.dumps(records, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+        json.dumps(public_records, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
     )
     summary = {
         "run_id": run_id,
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started)),
         "elapsed_s": round(time.time() - started, 1),
         "mode": mode,
+        "rounds": rounds,
+        "research_end": research_end,
+        "data_isolation": {
+            "optimisation": "in-sample only (panel cut at research_end; grid selects on IS)",
+            "stability_loop": "in-sample panel",
+            "display": "full panel; OOS/holdout metrics and figures only",
+        },
         "agent1_run": str(agent1_dir),
         "agent2_run": str(agent2_dir),
-        "agent3_run": str(agent3_dir),
+        "agent3_runs": agent3_runs,
         "agent1_status": agent1_report.get("status"),
         "agent2_status": agent2_result.get("status"),
         "agent3_status": agent3_result.get("status"),
-        "n_ideas": len(agent2_result.get("ideas", [])),
-        "n_expressions": len(agent3_result.get("expressions", [])),
+        "n_ideas": len(ideas_list),
         "n_evaluated": sum(1 for r in records if r.get("status") == "evaluated"),
-        "n_accepted": sum(1 for r in records if r.get("factor_id")),
+        "n_displayed": sum(1 for r in records if r.get("display")),
+        "n_accepted": accepted,
+        "n_rounds_run": len(agent3_runs),
+        "panel_is": list(panel_is.shape),
+        "panel_full": list(panel_full.shape),
     }
-    (output_root / "run.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    (output_root / "run.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    def _fmt(value) -> str:
+        if value is None:
+            return "-"
+        try:
+            return f"{float(value):.3f}"
+        except (TypeError, ValueError):
+            return str(value)
+
+    is_rows, display_rows = [], []
+    for record in records:
+        metrics = ((record.get("is") or {}).get("metrics")) or {}
+        stability = record.get("stability_is") or {}
+        is_rows.append(
+            {
+                "round": record.get("round"),
+                "expression": f"`{str(record.get('expression', record.get('expression_raw', '')))[:60]}`",
+                "sharpe_is": _fmt(metrics.get("sharpe")),
+                "ann_is": _fmt(metrics.get("ann_return")),
+                "turnover_is": _fmt(metrics.get("turnover")),
+                "rank_ic_is": _fmt(metrics.get("rank_ic")),
+                "stability_flags": ", ".join(stability.get("flags") or []) or "-",
+                "decision": record.get("decision") or "-",
+            }
+        )
+        display = record.get("display") or {}
+        segments = display.get("segments") or {}
+        display_rows.append(
+            {
+                "expression": f"`{str(record.get('expression', record.get('expression_raw', '')))[:60]}`",
+                "IS": _fmt((segments.get("is") or {}).get("sharpe")),
+                "OOS": _fmt((segments.get("oos") or {}).get("sharpe")),
+                "holdout": _fmt((segments.get("holdout") or {}).get("sharpe")),
+                "figure": f"`{display.get('figure', '')}`" if display.get("figure") else "-",
+            }
+        )
 
     lines = [
         f"# Merged pipeline run `{run_id}`",
         "",
-        f"- mode: `{mode}`; elapsed {summary['elapsed_s']}s",
+        f"- mode: `{mode}`; rounds requested: {rounds}; elapsed {summary['elapsed_s']}s",
+        f"- **data isolation**: the optimisation loop sees **in-sample only** "
+        f"(panel cut at {research_end}, {panel_is.shape[0]} of {panel_full.shape[0]} days); "
+        f"OOS/holdout are computed only in the display layer below",
         f"- agent1: `{agent1_dir}` (status {summary['agent1_status']})",
         f"- agent2: `{agent2_dir}` (status {summary['agent2_status']}, {summary['n_ideas']} ideas)",
-        f"- agent3: `{agent3_dir}` (status {summary['agent3_status']}, {summary['n_expressions']} expressions)",
-        f"- evaluated: {summary['n_evaluated']}; accepted into the pool: {summary['n_accepted']}",
+        f"- agent3 runs: {len(agent3_runs)}; evaluated: {summary['n_evaluated']}; "
+        f"accepted: {summary['n_accepted']}; displayed: {summary['n_displayed']}",
         "",
-        "## Evaluated expressions",
+        "## Optimisation evidence (in-sample only; what the agents and reviewer see)",
         "",
-    ]
-    table_rows = []
-    for record in records:
-        best = (record.get("grid") or {}).get("best") or {}
-        oos = (record.get("grid") or {}).get("out_of_sample") or {}
-        table_rows.append(
-            {
-                "idea": record.get("idea_id"),
-                "expression": f"`{str(record.get('expression', record.get('expression_raw', '')))[:70]}`",
-                "sharpe": best.get("sharpe"),
-                "ann_return": best.get("ann_return"),
-                "turnover": best.get("turnover"),
-                "sharpe_oos": oos.get("sharpe") if isinstance(oos, dict) else None,
-                "decision": record.get("decision"),
-                "error": record.get("error", ""),
-            }
-        )
-    lines.append(md_table(table_rows))
-    lines += ["", "## Agent logs", ""] + [f"- {entry}" for entry in log]
+        md_table(is_rows),
+        "",
+        "## Display layer (OOS/holdout computed after the loop; presentation only)",
+        "",
+        md_table(display_rows),
+        "",
+        "## Agent logs",
+        "",
+    ] + [f"- {entry}" for entry in log]
     (output_root / "report.md").write_text("\n".join(lines), encoding="utf-8")
     say(f"written: {output_root / 'report.md'}")
     return summary
+
+
+def main(argv: Optional[list[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--mode", choices=["offline", "llm"], default="offline")
+    parser.add_argument("--data-root", default=None)
+    parser.add_argument("--panel", default=None)
+    parser.add_argument("--out-root", default=None)
+    parser.add_argument("--run-id", default=None)
+    parser.add_argument(
+        "--research-end", default=IS_END_DEFAULT,
+        help="in-sample end; the optimisation loop never sees dates after it",
+    )
+    parser.add_argument("--rounds", type=int, default=2, help="feedback rounds")
+    parser.add_argument("--max-files", type=int, default=40, help="Agent-1 per-dataset file cap (0 = all)")
+    parser.add_argument("--max-rows", type=int, default=20000)
+    parser.add_argument("--max-evals", type=int, default=16)
+    parser.add_argument("--max-expressions-per-idea", type=int, default=1)
+    parser.add_argument("--plots", action="store_true")
+    args = parser.parse_args(argv)
+    if args.mode == "llm":
+        _export_agent_llm_env()
+    summary = run_pipeline(
+        mode=args.mode,
+        max_files=args.max_files,
+        max_rows=args.max_rows,
+        plots=args.plots,
+        research_end=args.research_end,
+        max_evals=args.max_evals,
+        max_expressions_per_idea=args.max_expressions_per_idea,
+        rounds=args.rounds,
+        data_root=Path(args.data_root) if args.data_root else None,
+        panel_dir=Path(args.panel) if args.panel else None,
+        run_id=args.run_id,
+        out_root=Path(args.out_root) if args.out_root else None,
+    )
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 def _export_agent_llm_env() -> None:
@@ -508,40 +906,6 @@ def _export_agent_llm_env() -> None:
         os.environ.setdefault(f"AGENT{index}_BASE_URL", base)
         os.environ.setdefault(f"AGENT{index}_API_KEY", key)
         os.environ.setdefault(f"AGENT{index}_MODEL", model)
-
-
-def main(argv: Optional[list[str]] = None) -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=["offline", "llm"], default="offline")
-    parser.add_argument("--data-root", default=None)
-    parser.add_argument("--panel", default=None)
-    parser.add_argument("--out-root", default=None)
-    parser.add_argument("--run-id", default=None)
-    parser.add_argument("--research-end", default="2020-12-31")
-    parser.add_argument("--max-files", type=int, default=40, help="Agent-1 per-dataset file cap (0 = all)")
-    parser.add_argument("--max-rows", type=int, default=20000)
-    parser.add_argument("--max-evals", type=int, default=24)
-    parser.add_argument("--max-expressions-per-idea", type=int, default=1)
-    parser.add_argument("--plots", action="store_true")
-    parser.add_argument("--no-stability", action="store_true")
-    args = parser.parse_args(argv)
-    if args.mode == "llm":
-        _export_agent_llm_env()
-    summary = run_pipeline(
-        mode=args.mode,
-        max_files=args.max_files,
-        max_rows=args.max_rows,
-        plots=args.plots,
-        research_end=args.research_end,
-        max_evals=args.max_evals,
-        max_expressions_per_idea=args.max_expressions_per_idea,
-        run_stability_checks=not args.no_stability,
-        data_root=Path(args.data_root) if args.data_root else None,
-        panel_dir=Path(args.panel) if args.panel else None,
-        run_id=args.run_id,
-        out_root=Path(args.out_root) if args.out_root else None,
-    )
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

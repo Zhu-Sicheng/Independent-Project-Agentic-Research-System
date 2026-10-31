@@ -192,6 +192,11 @@ the out-of-sample segments:
 A factor that only survives one configuration should be `optimize` (if a
 principled structural change exists) or `abandon`, never `accept`.
 
+`evaluation_protocol` states which data the evidence covers. When it says
+`IS-only`, the panel was cut at the in-sample end: no out-of-sample or holdout
+numbers exist for this decision. Judge the in-sample story, its stability and
+turnover only, and never ask for or invent OOS evidence.
+
 The evidence may contain three segments: `in_sample` (the grid selected its
 configuration here only), `out_of_sample` (2021-2024 validation) and `holdout`
 (2025+, the final untouched sample). Both untouched segments are evidence: a

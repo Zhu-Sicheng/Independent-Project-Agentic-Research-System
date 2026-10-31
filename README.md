@@ -601,39 +601,47 @@ baseline and every check on a single axes (colour-coded by check group),
 plus `metrics.csv`, `meta.json` (expression + baseline config) and `README.md`. They never overwrite the
 batch figures or the single-run view.
 
-#### Merged pipeline: collaborator agents + our evaluation
+#### Merged pipeline: collaborator agents + our evaluation (strict data isolation)
 
 The three research agents (`factorlab/agents/agent1|agent2|agent3` plus the shared
-`research` package) can drive a complete run, with everything after the
-expression produced by our stack:
+`research` package) drive ideation and implementation; everything after the
+expression is ours.
 
 ```
-Agent 1  raw data -> EDA -> data contract
+Agent 1  raw data (cut at research_end) -> EDA -> data contract
 Agent 2  contract -> natural-language hypotheses (ideas.json)
 Agent 3  ideas -> constrained expressions + numerical preview (expressions.json)
    |  field translation: Adj_Close -> close, Adj_Volume -> volume, ...
    v
-ours: GridSearch (decay / transform / cap filter / windows, IS selection)
-      + stability battery (subuniverse / cap / transform / decay / windows)
-      + reviewer (accept / optimize / abandon) + factor pool
+OPTIMISATION LOOP -- in-sample only (panel is physically cut at research_end):
+  GridSearch (decay / transform / cap filter / windows, selected on IS Sharpe)
+  + stability battery on the IS panel
+  + reviewer (accept / optimize / abandon) on IS evidence
+  -> feedback: IS metrics + stability flags are written to the shared research
+     memory, which Agent 3 reads through `search_memory` on the next round;
+     offline mode falls back to the reviewer's own optimize suggestion
+DISPLAY LAYER -- after the loop:
+  IS-chosen configuration re-applied to the full panel; OOS/holdout metrics and
+  figures are produced here and never fed back to the agents
 ```
 
 ```powershell
-python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16
+python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16 --rounds 2
 python -m factorlab.xy_pipeline --mode llm --max-files 40          # AGENTn_* env vars
 ```
 
-Outputs go to `experiments/xy/<run_id>/` (gitignored): `agent1|2|3/` artifacts,
-`stability/<expression_id>/` figures, `evaluations.json`, `run.json`,
-`report.md`. The translator also accepts Agent-3 lookbacks outside our grid
-horizons (`ts_returns(x, 1)`); the grid still only substitutes the configured
-window set.
+Outputs go to `experiments/xy/<run_id>/` (gitignored): `agent1|2|3_round*/`
+artifacts, `research_memory.sqlite3` (feedback records), `display/<expr_id>/`
+(OOS/holdout figure + full-panel stability), `evaluations.json`, `run.json`,
+`report.md`. The report keeps the two evidence layers separate: an **in-sample
+only** optimisation table and a **display** table with OOS/holdout. The
+translator also accepts Agent-3 lookbacks outside our grid horizons
+(`ts_returns(x, 1)`); the grid still only substitutes the configured window set.
 
-Notes for this first local run: Agent 1 was given a 40-files-per-dataset budget,
-so its contract marks fields as `candidate_requires_confirmation` and Agent 3
-returns expressions with status `research_validated_requires_metadata`; the
-pipeline evaluates those as research candidates and records the metadata
-blockers instead of silently promoting the fields.
+Notes: Agent 1 gets a 40-files-per-dataset budget, so its contract marks fields
+as `candidate_requires_confirmation` and Agent 3 returns
+`research_validated_requires_metadata`; those are evaluated as research
+candidates with the metadata blockers recorded, never silently promoted.
 
 ### 9. Known limitations / next steps
 
@@ -1180,35 +1188,43 @@ window 的 Sharpe 区间、`min_pnl_corr`、`flags`）交给 Agent 3；评审规
 同一张图上、按检验组用颜色区分，另有 `metrics.csv`、`meta.json`（表达式与基线配置）、
 `README.md`），**不覆盖**批次图与单次 run 的图。
 
-#### 合并流水线：对方的三段 agent + 我们的评估
+#### 合并流水线：对方的三段 agent + 我们的评估（严格数据隔离）
 
 三个研究 agent（`factorlab/agents/agent1|agent2|agent3` 与共享的 `research` 包）负责
-数据理解 → 自然语言假设 → 约束表达式，表达式之后全部走我们的栈：
+数据理解 → 自然语言假设 → 约束表达式，表达式之后全部走我们的栈。
 
 ```
-Agent 1 原始数据 -> EDA -> 数据契约
+Agent 1 原始数据（截断到 research_end）-> EDA -> 数据契约
 Agent 2 契约 -> 假设（ideas.json）
 Agent 3 假设 -> 表达式 + 数值预览（expressions.json）
    |  字段翻译：Adj_Close -> close、Adj_Volume -> volume ...
    v
-我们的：GridSearch（decay / transform / cap / 窗口，IS 选优）
-       + 稳定性检验（子全集 / cap / transform / decay / 窗口）
-       + 评审（accept / optimize / abandon）+ 因子池
+优化回路（只允许 in-sample：面板在 research_end 处物理截断）：
+  GridSearch（decay / transform / cap / 窗口，按 IS Sharpe 选优）
+  + 稳定性检验（在 IS 面板上）
+  + 评审（accept / optimize / abandon，只看 IS 证据）
+  -> 反馈：IS 指标 + 稳定性标记写入共享 research memory，Agent 3 下一轮
+     通过 search_memory 读取并据此修改表达式；离线模式则用评审给出的
+     optimize 改写（翻符号 / 平滑）作为下一轮候选
+展示层（回路结束后）：
+  把 IS 选中的配置重新应用到全样本，计算 OOS/holdout 并出图，
+  这部分结果绝不回传给任何 agent
 ```
 
 ```powershell
-python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16
+python -m factorlab.xy_pipeline --mode offline --max-files 40 --max-evals 16 --rounds 2
 python -m factorlab.xy_pipeline --mode llm --max-files 40          # 需要 AGENTn_* 环境变量
 ```
 
-结果写到 `experiments/xy/<run_id>/`（已 gitignore）：`agent1|2|3/` 产物、
-`stability/<expression_id>/` 图、`evaluations.json`、`run.json`、`report.md`。
-翻译层接受对方的任意 lookback（如 `ts_returns(x, 1)`），网格仍只替换我们配置的窗口集。
+结果写到 `experiments/xy/<run_id>/`（已 gitignore）：`agent1|2|3_round*/` 产物、
+`research_memory.sqlite3`（反馈记录）、`display/<expr_id>/`（OOS/holdout 图 + 全样本
+稳定性）、`evaluations.json`、`run.json`、`report.md`。报告把两层证据分开：
+**in-sample-only 的优化表**与**展示层的 OOS/holdout 表**。翻译层接受对方的任意
+lookback（如 `ts_returns(x, 1)`），网格仍只替换我们配置的窗口集。
 
-首次本地说明：Agent 1 只给了每数据集 40 个文件的预算，因此字段契约标记为
-`candidate_requires_confirmation`、Agent 3 输出状态为
-`research_validated_requires_metadata`；流水线把这些当作研究候选继续评估，并记录
-字段阻塞原因，不会静默提升为正式数据。
+说明：Agent 1 只给每数据集 40 个文件的预算，字段契约因此标记为
+`candidate_requires_confirmation`、Agent 3 输出 `research_validated_requires_metadata`；
+流水线把这些当作研究候选继续评估并记录字段阻塞，不会静默提升为正式数据。
 
 ### 9. 已知限制 / 下一步
 
