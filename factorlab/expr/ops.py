@@ -153,6 +153,13 @@ def _ts_apply(x, d, method: str):
     return getattr(x.rolling(d, min_periods=_minp(d)), method)()
 
 
+def _ts_roll(x, d, method: str, min_periods: int = 1):
+    """Simple window reduction; ``min_periods=1`` matches ts_operators.md."""
+    if not _is_df(x):
+        return x
+    return getattr(x.rolling(int(d), min_periods=min_periods), method)()
+
+
 def _delay(x, d):
     return x.shift(int(d)) if _is_df(x) else x
 
@@ -266,8 +273,10 @@ def _ts_rank(x, d):
 
 
 def _ts_ir(x, d):
-    mean = _ts_apply(x, d, "mean")
-    std = _ts_apply(x, d, "std").replace(0.0, np.nan)
+    mean = _ts_roll(x, d, "mean")
+    std = x.rolling(int(d), min_periods=2).std(ddof=0) if _is_df(x) else x
+    if _is_df(std):
+        std = std.mask(std < 1e-10)
     return mean / std
 
 
@@ -386,22 +395,22 @@ register("delay", "time-series", [X, Arg("d", "lag")], "value d days ago (lag, e
 register("delta", "time-series", [X, Arg("d", "lag")], "x - delay(x, d) (lag)", 2, 2)(_delta)
 register("ts_returns", "time-series", [X, W], "x / delay(x,d) - 1", 2, 2)(_ts_returns)
 register("ts_sum", "time-series", [X, W], "rolling sum", 2, 2)(
-    lambda x, d: _ts_apply(x, d, "sum")
+    lambda x, d: _ts_roll(x, d, "sum")
 )
 register("ts_mean", "time-series", [X, W], "rolling mean", 2, 2)(
-    lambda x, d: _ts_apply(x, d, "mean")
+    lambda x, d: _ts_roll(x, d, "mean")
 )
 register("ts_std", "time-series", [X, W], "rolling standard deviation", 2, 2)(
     lambda x, d: _ts_apply(x, d, "std")
 )
 register("ts_min", "time-series", [X, W], "rolling minimum", 2, 2)(
-    lambda x, d: _ts_apply(x, d, "min")
+    lambda x, d: _ts_roll(x, d, "min")
 )
 register("ts_max", "time-series", [X, W], "rolling maximum", 2, 2)(
-    lambda x, d: _ts_apply(x, d, "max")
+    lambda x, d: _ts_roll(x, d, "max")
 )
 register("ts_median", "time-series", [X, W], "rolling median", 2, 2)(
-    lambda x, d: _ts_apply(x, d, "median")
+    lambda x, d: _ts_roll(x, d, "median")
 )
 register("ts_skew", "time-series", [X, W], "rolling skewness", 2, 2)(
     lambda x, d: _ts_apply(x, d, "skew")
@@ -412,10 +421,16 @@ register("ts_kurt", "time-series", [X, W], "rolling kurtosis", 2, 2)(
 register("ts_rank", "time-series", [X, W], "percentile rank of today's value in the window", 2, 2)(
     _ts_rank
 )
-register("ts_zscore", "time-series", [X, W], "(x - ts_mean) / ts_std", 2, 2)(
-    lambda x, d: (x - _ts_apply(x, d, "mean"))
-    / _ts_apply(x, d, "std").replace(0.0, np.nan)
-)
+def _ts_zscore(x, d):
+    if not _is_df(x):
+        return x
+    mean = _ts_roll(x, d, "mean")
+    std = x.rolling(int(d), min_periods=2).std(ddof=0)
+    zero = (std < 1e-14) & std.notna()
+    return ((x - mean) / std).mask(zero, 0.0)
+
+
+register("ts_zscore", "time-series", [X, W], "(x - ts_mean) / ts_std", 2, 2)(_ts_zscore)
 register("ts_ir", "time-series", [X, W], "ts_mean / ts_std", 2, 2)(_ts_ir)
 register("ts_argmax", "time-series", [X, W], "normalized position of the window max", 2, 2)(
     lambda x, d: _ts_arg(x, d, "max")
@@ -611,7 +626,7 @@ def _ts_count_nans(x, d):
 
 
 def _ts_bollinger(x, d, k):
-    ma = _ts_apply(x, d, "mean")
+    ma = _ts_roll(x, d, "mean")
     sd = _ts_std_dev(x, d)
     upper = ma + float(k) * sd
     lower = ma - float(k) * sd
@@ -636,39 +651,37 @@ def _ts_bollinger_width(x, d, k=2.0):
 
 
 def _ts_max_diff(x, d):
-    return x - _ts_apply(x, d, "max")
+    return x - _ts_roll(x, d, "max")
 
 
 def _ts_min_diff(x, d):
-    return x - _ts_apply(x, d, "min")
+    return x - _ts_roll(x, d, "min")
 
 
 def _ts_min_max_diff(x, d, f=0.5):
-    return x - float(f) * (_ts_apply(x, d, "min") + _ts_apply(x, d, "max"))
+    return x - float(f) * (_ts_roll(x, d, "min") + _ts_roll(x, d, "max"))
 
 
 def _ts_range(x, d):
-    return _ts_apply(x, d, "max") - _ts_apply(x, d, "min")
+    return _ts_roll(x, d, "max") - _ts_roll(x, d, "min")
 
 
 def _ts_extreme_ratio(x, d):
-    denom = _ts_apply(x, d, "min")
+    denom = _ts_roll(x, d, "min")
     denom = denom.where(denom.abs() > 1e-12)
-    return _ts_apply(x, d, "max") / denom
+    return _ts_roll(x, d, "max") / denom
 
 
 def _ts_returns_spec(x, d, mode=1.0):
-    if not _is_df(x):
-        return x
-    shifted = x.shift(int(d))
-    res = (x - shifted) / shifted.where(shifted.abs() > 1e-12)
+    shifted = x.shift(int(d)) if _is_df(x) else x
+    res = (x - shifted) / shifted
     if float(mode) == 0:
         res = res * 100
     return res
 
 
 def _ts_av_diff(x, d):
-    return x - _ts_apply(x, d, "mean")
+    return x - _ts_roll(x, d, "mean")
 
 
 def _ts_delta_spec(x, d):
@@ -772,7 +785,7 @@ register("ts_product", "time-series", [X, W], "rolling product", 2, 2)(_ts_produ
 register(
     "ts_quantile",
     "time-series",
-    [X, W, Arg("driver", "value", None)],
+    [X, W, Arg("driver", "value", "gaussian")],
     "rank mapped through the gaussian (or uniform) quantile function",
     2,
     3,

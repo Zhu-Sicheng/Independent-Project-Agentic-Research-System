@@ -1,0 +1,1324 @@
+{
+  "schema_version": "1.0",
+  "source": "factorlab.expr.ops",
+  "approved": [
+    "abs",
+    "clip",
+    "demean",
+    "exp",
+    "if_else",
+    "log",
+    "log1p",
+    "mask",
+    "max",
+    "min",
+    "nan_to_num",
+    "rank",
+    "scale",
+    "sign",
+    "signed_power",
+    "sqrt",
+    "ts_arg_max",
+    "ts_arg_min",
+    "ts_av_diff",
+    "ts_bollinger_percent",
+    "ts_bollinger_position",
+    "ts_bollinger_width",
+    "ts_count_nans",
+    "ts_decay_linear",
+    "ts_delta",
+    "ts_ema",
+    "ts_entropy",
+    "ts_extreme_ratio",
+    "ts_gain_loss_ratio",
+    "ts_hhi",
+    "ts_ir",
+    "ts_mad",
+    "ts_max",
+    "ts_max_diff",
+    "ts_max_drawdown",
+    "ts_mean",
+    "ts_median",
+    "ts_min",
+    "ts_min_diff",
+    "ts_min_max_diff",
+    "ts_percentage",
+    "ts_positive_ratio",
+    "ts_product",
+    "ts_quantile",
+    "ts_range",
+    "ts_rank",
+    "ts_returns",
+    "ts_scale",
+    "ts_std_dev",
+    "ts_sum",
+    "ts_zscore",
+    "winsorize",
+    "zscore"
+  ],
+  "window_policy": {
+    "allowed": [
+      5,
+      20,
+      60,
+      120,
+      240
+    ],
+    "window_kinds": [
+      "window"
+    ],
+    "lag_kinds": [
+      "lag"
+    ]
+  },
+  "operators": [
+    {
+      "name": "abs",
+      "category": "element-wise",
+      "doc": "absolute value",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "clip",
+      "category": "element-wise",
+      "doc": "clip to [lo, hi]",
+      "min_args": 3,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "lo",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "hi",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "demean",
+      "category": "cross-sectional",
+      "doc": "subtract the cross-sectional mean",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "exp",
+      "category": "element-wise",
+      "doc": "exponential (clipped to avoid overflow)",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "if_else",
+      "category": "conditional",
+      "doc": "cond ? a : b",
+      "min_args": 3,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "cond",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "a",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "b",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "log",
+      "category": "element-wise",
+      "doc": "natural log (non-positive -> nan)",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "log1p",
+      "category": "element-wise",
+      "doc": "log(1+x)",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "mask",
+      "category": "conditional",
+      "doc": "x where cond else nan",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "cond",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "max",
+      "category": "element-wise",
+      "doc": "element-wise maximum",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "y",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "min",
+      "category": "element-wise",
+      "doc": "element-wise minimum",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "y",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "nan_to_num",
+      "category": "element-wise",
+      "doc": "replace nan",
+      "min_args": 1,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "v",
+          "kind": "scalar",
+          "default": 0.0
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "rank",
+      "category": "cross-sectional",
+      "doc": "cross-sectional percentile rank in [0,1] per day",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "scale",
+      "category": "cross-sectional",
+      "doc": "x / sum|x| * a",
+      "min_args": 1,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "a",
+          "kind": "scalar",
+          "default": 1.0
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "sign",
+      "category": "element-wise",
+      "doc": "sign in {-1,0,1} per stock per day",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "signed_power",
+      "category": "element-wise",
+      "doc": "sign(x)*|x|^a",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "a",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "sqrt",
+      "category": "element-wise",
+      "doc": "square root of clipped non-negative",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_arg_max",
+      "category": "time-series",
+      "doc": "days since the window max (0 = today)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_arg_min",
+      "category": "time-series",
+      "doc": "days since the window min (0 = today)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_av_diff",
+      "category": "time-series",
+      "doc": "x - ts_mean(x, d)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_bollinger_percent",
+      "category": "time-series",
+      "doc": "(x - lower) / (upper - lower), bands = mean +/- k*std",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "k",
+          "kind": "scalar",
+          "default": 2.0
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_bollinger_position",
+      "category": "time-series",
+      "doc": "bollinger percent clipped to [0, 1]",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "k",
+          "kind": "scalar",
+          "default": 2.0
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_bollinger_width",
+      "category": "time-series",
+      "doc": "2*k*std / |mean| (band width relative to the mean)",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "k",
+          "kind": "scalar",
+          "default": 2.0
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_count_nans",
+      "category": "time-series",
+      "doc": "number of NaNs inside the window",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_decay_linear",
+      "category": "time-series",
+      "doc": "linear decay, recent weighted most",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_delta",
+      "category": "time-series",
+      "doc": "x - x(t-d) (lag, d >= 1)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "lag",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [
+        1
+      ],
+      "approved": true
+    },
+    {
+      "name": "ts_ema",
+      "category": "time-series",
+      "doc": "exponential moving average, span = d",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_entropy",
+      "category": "time-series",
+      "doc": "entropy of |x| shares inside the window",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_extreme_ratio",
+      "category": "time-series",
+      "doc": "ts_max(x, d) / ts_min(x, d)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_gain_loss_ratio",
+      "category": "time-series",
+      "doc": "sum of positive changes / sum of |negative changes| inside the window",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_hhi",
+      "category": "time-series",
+      "doc": "Herfindahl index of |x| shares",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_ir",
+      "category": "time-series",
+      "doc": "ts_mean / ts_std",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_mad",
+      "category": "time-series",
+      "doc": "mean absolute deviation from the window mean",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_max",
+      "category": "time-series",
+      "doc": "rolling maximum",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_max_diff",
+      "category": "time-series",
+      "doc": "x - ts_max(x, d)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_max_drawdown",
+      "category": "time-series",
+      "doc": "worst drawdown inside the window",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_mean",
+      "category": "time-series",
+      "doc": "rolling mean",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_median",
+      "category": "time-series",
+      "doc": "rolling median",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_min",
+      "category": "time-series",
+      "doc": "rolling minimum",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_min_diff",
+      "category": "time-series",
+      "doc": "x - ts_min(x, d)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_min_max_diff",
+      "category": "time-series",
+      "doc": "x - f * (ts_min + ts_max)",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "f",
+          "kind": "scalar",
+          "default": 0.5
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_percentage",
+      "category": "time-series",
+      "doc": "rolling quantile of x at `percentage`",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "percentage",
+          "kind": "scalar",
+          "default": 0.5
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_positive_ratio",
+      "category": "time-series",
+      "doc": "fraction of positive values inside the window",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_product",
+      "category": "time-series",
+      "doc": "rolling product",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_quantile",
+      "category": "time-series",
+      "doc": "rank mapped through the gaussian (or uniform) quantile function",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "driver",
+          "kind": "value",
+          "default": "gaussian"
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_range",
+      "category": "time-series",
+      "doc": "ts_max(x, d) - ts_min(x, d)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_rank",
+      "category": "time-series",
+      "doc": "rank of today's value in the window; constant=1 -> percentile",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "constant",
+          "kind": "scalar",
+          "default": 0.0
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_returns",
+      "category": "time-series",
+      "doc": "(x - x(t-d)) / x(t-d); mode=0 -> percent",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "mode",
+          "kind": "scalar",
+          "default": 1.0
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_scale",
+      "category": "time-series",
+      "doc": "min-max scale of x inside the window, plus `constant`",
+      "min_args": 2,
+      "max_args": 3,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        },
+        {
+          "name": "constant",
+          "kind": "scalar",
+          "default": 0.0
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_std_dev",
+      "category": "time-series",
+      "doc": "rolling standard deviation (ddof=0)",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_sum",
+      "category": "time-series",
+      "doc": "rolling sum",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "ts_zscore",
+      "category": "time-series",
+      "doc": "(x - ts_mean) / ts_std",
+      "min_args": 2,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "d",
+          "kind": "window",
+          "default": null
+        }
+      ],
+      "window_positions": [
+        1
+      ],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "winsorize",
+      "category": "cross-sectional",
+      "doc": "clip daily tails",
+      "min_args": 1,
+      "max_args": 2,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        },
+        {
+          "name": "p",
+          "kind": "scalar",
+          "default": 0.01
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    },
+    {
+      "name": "zscore",
+      "category": "cross-sectional",
+      "doc": "cross-sectional z-score per day",
+      "min_args": 1,
+      "max_args": 1,
+      "args": [
+        {
+          "name": "x",
+          "kind": "value",
+          "default": null
+        }
+      ],
+      "window_positions": [],
+      "lag_positions": [],
+      "approved": true
+    }
+  ],
+  "fingerprint": "sha256:f9b62a77c1f87206274a8d32707eef47315e824224cac8e3cfb5bb165050e610",
+  "generated_at_utc": "2026-10-31T09:24:53.557180+00:00"
+}

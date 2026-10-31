@@ -47,6 +47,8 @@ class Evaluator:
     def eval(self, node: P.Expr) -> Value:
         if isinstance(node, P.Num):
             return node.value
+        if isinstance(node, P.Str):
+            return node.value
         if isinstance(node, P.Const):
             return P.CONSTANTS[node.name]
         if isinstance(node, P.Var):

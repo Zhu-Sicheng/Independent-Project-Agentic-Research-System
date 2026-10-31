@@ -18,6 +18,7 @@ window substitution (the grid search) a pure tree rewrite.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from typing import Iterator, Sequence, Tuple, Union
@@ -35,6 +36,13 @@ class ExpressionError(ValueError):
 @dataclass(frozen=True)
 class Num:
     value: float
+
+
+@dataclass(frozen=True)
+class Str:
+    """String literal, used by operators that take a mode/driver name."""
+
+    value: str
 
 
 @dataclass(frozen=True)
@@ -66,7 +74,7 @@ class Bin:
     right: "Expr"
 
 
-Expr = Union[Num, Const, Var, Call, Unary, Bin]
+Expr = Union[Num, Str, Const, Var, Call, Unary, Bin]
 
 CONSTANTS = {
     "nan": float("nan"),
@@ -83,6 +91,7 @@ _TOKEN_RE = re.compile(
       (?P<space>\s+)
     | (?P<number>(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?)
     | (?P<name>[A-Za-z_][A-Za-z0-9_]*)
+    | (?P<string>"[^"]*"|'[^']*')
     | (?P<op><=|>=|==|!=|&&|\|\||[-+*/^<>!(),&|])
     """,
     re.VERBOSE,
@@ -207,6 +216,8 @@ class Parser:
         tok = self.take()
         if tok.kind == "number":
             return Num(float(tok.text))
+        if tok.kind == "string":
+            return Str(tok.text[1:-1])
         if tok.kind == "name":
             nxt = self.peek()
             if nxt and nxt.text == "(":
@@ -256,6 +267,8 @@ def to_string(node: Expr) -> str:
     if isinstance(node, Num):
         v = node.value
         return str(int(v)) if float(v).is_integer() else repr(v)
+    if isinstance(node, Str):
+        return json.dumps(node.value)
     if isinstance(node, Const):
         return node.name
     if isinstance(node, Var):

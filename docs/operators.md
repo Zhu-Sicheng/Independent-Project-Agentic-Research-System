@@ -62,14 +62,25 @@ Source of the time-series list: `ts_operators.md` (2026-10), 35 operators.
 | `ts_sum` | `(x, d)` | rolling sum |
 | `ts_zscore` | `(x, d)` | `(x - mean) / std`, zero std → 0 |
 
+Reference alignment: the 35 time-series operators follow the reference
+implementation in [`ts_operators.md`](ts_operators.md) for the overlapping set.
+Operators we added ourselves (the non-time-series set above) keep our own
+semantics. A machine-readable snapshot is exported by
+`python -m factorlab.expr.catalog --out operators.json` (with a stable
+fingerprint for downstream agents).
+
 Implementation notes:
 
-- rolling windows use `min_periods = max(3, d//2)`, except `ts_std_dev`
-  (`min_periods=2`), `ts_ema` (`max(1, d//5)`), and the count/ratio operators
-  (`min_periods=1`) where partial windows are informative.
+- simple reductions (`ts_mean`, `ts_sum`, `ts_min`, `ts_max`, `ts_median`) use
+  `min_periods=1`, as in the reference: partial warm-up windows are defined.
+- `ts_std_dev` uses `min_periods=2, ddof=0`; `ts_ema` uses `max(1, d//5)`;
+  `ts_percentage`, `ts_count_nans`, `ts_positive_ratio` also fill partial
+  windows (`min_periods=1`).
+- `ts_ir` maps a dispersion below `1e-10` to NaN; `ts_zscore` maps it to 0.
+- `ts_rank` without `constant=1` returns a count, not a percentile.
+- string literals are supported for mode arguments: `ts_quantile(x, 20, "uniform")`.
 - `ts_arg_max` / `ts_arg_min` return **days since** the extreme (BRAIN
   convention), not a normalised position.
-- `ts_rank` without `constant=1` returns a count, not a percentile.
 
 ## Non-time-series operators (always approved)
 

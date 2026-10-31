@@ -242,7 +242,8 @@ if_else(rank(cap) > 0.3, -ts_mean(returns, 20), nan)
 
 #### 4.2 Approved operators (the only ones Agent 2.2 may use)
 
-The 35 time-series operators follow `ts_operators.md`:
+The 35 time-series operators follow `ts_operators.md` (implementation aligned
+with the reference, see [`docs/ts_operators.md`](docs/ts_operators.md)):
 
 | family | operators |
 |---|---|
@@ -265,6 +266,17 @@ replacement, e.g. `ts_std` → `use ts_std_dev`, `delay` → `use ts_delta / ts_
 The whitelist lives in `factorlab/expr/approved.py`; adding an operator is two
 steps (register it in `ops.py`, append it to `TS_OPERATORS`). Passing
 `strict_operators=False` relaxes the rule for one call.
+
+For the overlapping set the implementations follow the reference in
+[`docs/ts_operators.md`](docs/ts_operators.md) (simple reductions use
+`min_periods=1`, `ts_ir` → NaN and `ts_zscore` → 0 for zero dispersion, string
+mode arguments such as `ts_quantile(x, 20, "uniform")` are supported). The
+non-time-series operators above are ours. A machine-readable catalog with a
+stable fingerprint is exported for the agent pipeline:
+
+```powershell
+python -m factorlab.expr.catalog --out operators.json [--approved-only]
+```
 
 `rank` is cross-sectional per day; `ts_*` roll per stock. Except for `ts_delta`
 (a lag, 1 is allowed), window arguments follow 4.3.
