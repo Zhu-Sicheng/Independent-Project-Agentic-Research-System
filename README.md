@@ -520,7 +520,7 @@ python -m factorlab ledger --sort sharpe_oos --top 20
 ```
 
 Inspect one experiment (rebuilds the factor from its spec, re-runs the backtest,
-and plots equity / drawdown / yearly sharpe while printing the segment and yearly
+and plots equity / drawdown / yearly sharpe / yearly return while printing the segment
 tables):
 
 ```powershell
@@ -1036,7 +1036,7 @@ python -m factorlab ledger --rebuild
 python -m factorlab ledger --sort sharpe_oos --top 20
 ```
 
-查看单个实验（按 spec 重建因子并重跑回测，画出净值/回撤/分年 Sharpe，同时打印分段与分年统计表）：
+查看单个实验（按 spec 重建因子并重跑回测，画出净值 / 回撤 / 分年 Sharpe / 分年收益四联图，同时打印分段与分年统计表）：
 
 ```powershell
 python -m factorlab view                 # 列出 ledger

@@ -37,6 +37,27 @@ class TestViewReplay(unittest.TestCase):
         self.assertEqual(float(result.pnl.fillna(0).abs().max()), 0.)
         self.assertTrue(np.isnan(result.metrics['sharpe']))
 
+    def test_draw_panels_writes_four_panel_figure(self):
+        import numpy as np
+        import pandas as pd
+        from PIL import Image
+        from factorlab.backtest.split import SplitMasks
+        from factorlab.view import draw_panels
+
+        idx = pd.bdate_range("2020-01-01", periods=300)
+        rng = np.random.default_rng(0)
+        pnl = pd.Series(rng.normal(0, 0.001, 300), index=idx)
+        turnover = pd.Series(0.2, index=idx)
+        ic = pd.Series(0.01, index=idx)
+        masks = SplitMasks(masks={"is": pd.Series(True, index=idx)}, meta={})
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "figure.png"
+            draw_panels(pnl, turnover, ic, {}, masks, out, "test factor")
+            self.assertTrue(out.exists())
+            with Image.open(out) as image:
+                width, height = image.size
+            self.assertGreater(height, width)  # four stacked panels
+
     def test_unchanged_expression_without_windows(self):
         a = {'spec': {'expression': 'rank(close)'}, 'grid': {'best': {'windows': []}}}
         self.assertEqual(winning_expression(a), 'rank(close)')

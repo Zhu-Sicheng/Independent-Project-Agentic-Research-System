@@ -167,22 +167,58 @@ def plot_result(
     out_path: Path,
     title: str,
 ) -> Path:
+    return draw_panels(
+        result.pnl,
+        result.turnover,
+        result.ic,
+        result.segments or {},
+        masks,
+        out_path,
+        title,
+    )
+
+
+def plot_from_daily(
+    daily_csv: str | Path,
+    masks,
+    segments: dict,
+    out_path: Path,
+    title: str,
+) -> Path:
+    """Redraw from a saved ``*_daily.csv`` without replaying the backtest."""
+    frame = pd.read_csv(Path(daily_csv), index_col=0, parse_dates=True)
+    return draw_panels(
+        frame["pnl"],
+        frame.get("turnover"),
+        frame.get("rank_ic"),
+        segments,
+        masks,
+        out_path,
+        title,
+    )
+
+
+def draw_panels(pnl_series, turnover_series, ic_series, segments, masks, out_path: Path, title: str) -> Path:
+    """Equity, drawdown, yearly sharpe and yearly return in one figure."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from matplotlib.transforms import blended_transform_factory
 
-    pnl = result.pnl.fillna(0.0)
+    pnl = pd.Series(pnl_series).fillna(0.0)
+    turnover = pd.Series(turnover_series) if turnover_series is not None else pd.Series(0.0, index=pnl.index)
+    ic = pd.Series(ic_series) if ic_series is not None else pd.Series(np.nan, index=pnl.index)
     equity = (1 + pnl).cumprod()
     drawdown = equity / equity.cummax() - 1
-    yearly = yearly_stats(result.pnl, result.turnover, result.ic)
+    yearly = yearly_stats(pnl, turnover, ic)
+    segments = segments or {}
 
     fig, axes = plt.subplots(
-        3,
+        4,
         1,
-        figsize=(11.5, 9.5),
-        gridspec_kw={"height_ratios": [3.2, 1.1, 1.3], "hspace": 0.42},
+        figsize=(11.5, 11.4),
+        gridspec_kw={"height_ratios": [3.2, 1.0, 1.2, 1.2], "hspace": 0.46},
     )
 
     # ---- equity, shaded by segment -----------------------------------
@@ -201,7 +237,7 @@ def plot_result(
         idx = mask.index[mask.to_numpy()]
         ax.axvspan(idx[0], idx[-1], color=color, alpha=0.75, zorder=0)
         ax.axvline(idx[0], color="#999999", linewidth=0.8, linestyle="--", zorder=1)
-        seg = (result.segments or {}).get(name) or {}
+        seg = segments.get(name) or {}
         ax.text(
             idx[0] + (idx[-1] - idx[0]) * 0.5,
             0.97,
@@ -244,11 +280,48 @@ def plot_result(
         ax.tick_params(axis="x", labelrotation=60, labelsize=7)
         ax.grid(alpha=0.2, axis="y")
 
+    # ---- yearly return (percent) --------------------------------------
+    ax = axes[3]
+    if not yearly.empty:
+        values = yearly["return"] * 100.0
+        colors = ["#3c7a4a" if v >= 0 else "#b23b3b" for v in values]
+        ax.bar(yearly.index.astype(str), values, color=colors, alpha=0.85)
+        ax.axhline(0, color="#333333", linewidth=0.8)
+        ax.set_ylabel("yearly return (%)")
+        ax.tick_params(axis="x", labelrotation=60, labelsize=7)
+        ax.grid(alpha=0.2, axis="y")
+        total = float(equity.iloc[-1] - 1) if len(equity) else float("nan")
+        ax.text(
+            0.99,
+            0.92,
+            f"total {total:.1%}",
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            fontsize=8,
+            color="#333333",
+            bbox={"facecolor": "white", "alpha": 0.7, "edgecolor": "none", "pad": 1.5},
+        )
+
+    import os
+    import time
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.subplots_adjust(top=0.90, bottom=0.07)
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    tmp_path = out_path.with_name(out_path.name + ".tmp.png")
+    fig.savefig(tmp_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
-    return out_path
+    last_error: Optional[OSError] = None
+    for _ in range(5):
+        try:
+            os.replace(tmp_path, out_path)  # atomic; avoids locked-target writes
+            return out_path
+        except OSError as exc:  # antivirus / viewer briefly holding the file
+            last_error = exc
+            time.sleep(0.5)
+    if tmp_path.exists():
+        tmp_path.unlink(missing_ok=True)
+    raise last_error
 
 
 def _segment_table(result) -> str:
