@@ -380,6 +380,25 @@ def review(
             "no evidence the hypothesised mechanism is priced."
         )
 
+    # robustness battery (optional): a fragile factor cannot be accepted
+    stability = summary.get("stability") or {}
+    flags = list(stability.get("flags") or [])
+    if flags:
+        note = (
+            f" Stability checks flag {', '.join(flags)}: "
+            f"sub-universe Sharpe {stability.get('subuniverse_sharpe', float('nan')):.2f} "
+            f"vs {sharpe:.2f}, lowest variant pnl correlation "
+            f"{stability.get('min_pnl_corr', float('nan')):.2f}."
+        )
+        reasoning += note
+        if decision == "accept":
+            if "subuniverse_flips_sign" in flags or "variant_pnl_decorrelates" in flags:
+                decision = "abandon"
+                reasoning += " The edge does not survive the robustness battery."
+            else:
+                decision = "optimize" if can_optimize else "abandon"
+                reasoning += " It only survives one configuration; stabilise it before accepting."
+
     revised = None
     suggestions: list[str] = []
     if decision == "optimize":

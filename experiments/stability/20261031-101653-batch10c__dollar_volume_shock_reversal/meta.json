@@ -1,0 +1,10 @@
+{
+  "run_id": "20261031-101653-batch10c",
+  "hypothesis": "dollar_volume_shock_reversal",
+  "expression": "-rank((ts_mean(amount, 60) / ts_mean(amount, 60)))",
+  "baseline": {
+    "decay": "0",
+    "transform": "rank",
+    "cap": "0.3"
+  }
+}

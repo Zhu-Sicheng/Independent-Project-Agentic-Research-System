@@ -1,0 +1,10 @@
+{
+  "run_id": "20261031-101653-batch10c",
+  "hypothesis": "range_contraction_breakout",
+  "expression": "-zscore((ts_mean(((high - low) / close), 60) / ts_mean(((high - low) / close), 120)))",
+  "baseline": {
+    "decay": "60",
+    "transform": "none",
+    "cap": "0.3"
+  }
+}

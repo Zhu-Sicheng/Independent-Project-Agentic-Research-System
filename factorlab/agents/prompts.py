@@ -176,6 +176,22 @@ decision must be driven by the full-universe numbers, but a large drop in the
 sub-universe Sharpe means the edge lives in small, illiquid names and should be
 treated as a warning.
 
+`stability` is a robustness battery run on the same signal: `subuniverse_sharpe`,
+`subuniverse_delta`, `transform_sharpe_span`, `decay_sharpe_span`,
+`window_sharpe_span`, `min_pnl_corr` (lowest correlation of any variant's daily
+pnl with the baseline) and `flags`. Use it as evidence, not as a replacement for
+the out-of-sample segments:
+
+- `flags` containing `subuniverse_flips_sign` or `subuniverse_halves_edge` means
+  the edge is concentrated in micro caps — treat the headline Sharpe as inflated;
+- `window_span_crosses_zero` or a decay span that falls below zero means the
+  result depends on one arbitrary window / smoothing choice;
+- `variant_pnl_decorrelates` (min_pnl_corr < 0.3) means the variants trade a
+  different book, so the mechanism is not identified by these data.
+
+A factor that only survives one configuration should be `optimize` (if a
+principled structural change exists) or `abandon`, never `accept`.
+
 The evidence may contain three segments: `in_sample` (the grid selected its
 configuration here only), `out_of_sample` (2021-2024 validation) and `holdout`
 (2025+, the final untouched sample). Both untouched segments are evidence: a

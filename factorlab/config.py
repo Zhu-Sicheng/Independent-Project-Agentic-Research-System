@@ -273,6 +273,8 @@ class MiningConfig:
     split: Optional[SampleSplit] = None
     llm: LLMSettings = field(default_factory=LLMSettings.from_env)
     seed: int = 7
+    #: run the stability checks on the best config and hand them to the reviewer
+    compute_stability: bool = True
 
 
 def ensure_dirs(*paths: Path) -> None:

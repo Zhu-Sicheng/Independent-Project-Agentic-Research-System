@@ -39,6 +39,7 @@ class Attempt:
     factor_id: Optional[str] = None
     elapsed_s: float = 0.0
     error: Optional[str] = None
+    stability: Optional[dict] = None
 
 
 class MiningLoop:
@@ -210,10 +211,36 @@ class MiningLoop:
                     f"ann {hold.get('ann_return', float('nan')):.1%} "
                     f"({self.split_masks.meta.get('holdout_range')})"
                 )
+            stability = None
+            if self.config.compute_stability:
+                try:
+                    from .stability import stability_summary
+
+                    stability = stability_summary(
+                        self.panel,
+                        {
+                            "hypothesis": name,
+                            "spec": spec.to_dict(),
+                            "grid": grid.summary(),
+                        },
+                    )
+                    flags = stability.get("flags") or []
+                    self._log(
+                        f"    stability -> sub {stability.get('subuniverse_sharpe', float('nan')):.2f}, "
+                        f"decay {stability['decay_sharpe_span'][0]:.2f}..{stability['decay_sharpe_span'][1]:.2f}, "
+                        f"window {stability['window_sharpe_span'][0]:.2f}..{stability['window_sharpe_span'][1]:.2f}"
+                        + (f", flags {flags}" if flags else "")
+                    )
+                except Exception as exc:
+                    self._log(f"    stability check failed: {exc}")
+            record.stability = stability
             review = self.critic.review(
-                hypothesis, spec, grid, history, self.panel, self.config.max_rounds
+                hypothesis, spec, grid, history, self.panel, self.config.max_rounds,
+                stability=stability,
             )
             record.grid = grid.summary()
+            if stability is not None:
+                record.grid["stability"] = stability
             record.review = review
             self._log(f"    decision: {review['decision']} -- {review.get('reasoning', '')[:160]}")
 

@@ -1,0 +1,10 @@
+{
+  "run_id": "20261031-101653-batch10c",
+  "hypothesis": "close_position_persistence",
+  "expression": "rank(ts_mean(close_position, 20))",
+  "baseline": {
+    "decay": "60",
+    "transform": "sign",
+    "cap": "None"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "run_id": "20261031-101653-batch10c",
+  "hypothesis": "overnight_gap_fade",
+  "expression": "-rank(ts_sum(overnight_return, 5))",
+  "baseline": {
+    "decay": "60",
+    "transform": "none",
+    "cap": "0.3"
+  }
+}

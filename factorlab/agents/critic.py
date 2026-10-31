@@ -28,8 +28,11 @@ class CriticAgent:
         history: list[dict],
         panel: PanelStore,
         max_rounds: int = 2,
+        stability: Optional[dict] = None,
     ) -> dict:
         summary = grid.summary()
+        if stability:
+            summary["stability"] = stability
         yearly = summary.get("yearly", [])
         if self.llm.available:
             try:

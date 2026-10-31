@@ -1,0 +1,10 @@
+{
+  "run_id": "20261031-101653-batch10c",
+  "hypothesis": "overnight_intraday_reversal",
+  "expression": "-rank((ts_sum(overnight_return, 60) - ts_sum(intraday_return, 20)))",
+  "baseline": {
+    "decay": "60",
+    "transform": "none",
+    "cap": "0.3"
+  }
+}

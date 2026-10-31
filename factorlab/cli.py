@@ -92,6 +92,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--objective", default="sharpe")
     run.add_argument("--tag", default="")
     run.add_argument("--offline", action="store_true", help="force the rule-based agents")
+    run.add_argument("--no-stability", action="store_true",
+                     help="skip the stability battery handed to the reviewer")
     _add_split(run)
 
     build = sub.add_parser("build-data", help="build the processed panel from the raw CRSP extract")
@@ -153,6 +155,7 @@ def cmd_run(args) -> int:
     config.backtest = config.backtest.replace(
         subuniverse=_subuniverse_from_args(args)
     )
+    config.compute_stability = not getattr(args, "no_stability", False)
     if args.offline:
         config.llm.provider = "offline"
         config.llm.model = ""

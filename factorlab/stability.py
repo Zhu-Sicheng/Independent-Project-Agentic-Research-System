@@ -170,7 +170,6 @@ def build_variants(
             except Exception as exc:  # pragma: no cover - defensive
                 variants.append(Variant(f"window[{slot}]={window}", "window", pd.Series(dtype=float), {"error": str(exc)}))
                 continue
-            print(f"  window[{slot}]={window}", flush=True)
             add(
                 f"window[{slot}]={window}",
                 "window",
@@ -290,6 +289,65 @@ def replot_all(root: str | Path = STABILITY_DIR) -> int:
     return drawn
 
 
+def _span(values: Iterable[float]) -> list[float]:
+    clean = [float(v) for v in values if isinstance(v, (int, float)) and np.isfinite(v)]
+    return [min(clean), max(clean)] if clean else [float("nan"), float("nan")]
+
+
+def stability_summary(panel: PanelStore, attempt: dict) -> dict:
+    """Compact evidence handed to the review agent (no plots, no files)."""
+    variants = build_variants(panel, attempt)
+    baseline = next(v for v in variants if v.group == "original")
+    base_pnl = baseline.pnl
+
+    def sharpes(group: str) -> list[float]:
+        return [v.metrics.get("sharpe") for v in variants if v.group == group]
+
+    def correlations(variants_subset) -> list[float]:
+        out = []
+        for variant in variants_subset:
+            joined = pd.concat([base_pnl.rename("a"), variant.pnl.rename("b")], axis=1).dropna()
+            if len(joined) > 3:
+                value = float(joined["a"].corr(joined["b"]))
+                if np.isfinite(value):
+                    out.append(value)
+        return out
+
+    non_baseline = [v for v in variants if v.group != "original" and not v.pnl.empty]
+    sub = [v for v in variants if v.group == "subuniverse"]
+    sub_sharpe = float(sub[0].metrics.get("sharpe")) if sub else float("nan")
+    base_sharpe = float(baseline.metrics.get("sharpe", np.nan))
+
+    summary = {
+        "baseline_sharpe": base_sharpe,
+        "subuniverse_sharpe": sub_sharpe,
+        "subuniverse_delta": sub_sharpe - base_sharpe if np.isfinite(sub_sharpe) else float("nan"),
+        "transform_sharpe_span": _span(sharpes("transform")),
+        "decay_sharpe_span": _span(sharpes("decay")),
+        "window_sharpe_span": _span(sharpes("window")),
+        "min_pnl_corr": min(correlations(non_baseline), default=float("nan")),
+        "max_turnover": max(
+            (float(v.metrics.get("turnover", np.nan)) for v in variants
+             if np.isfinite(float(v.metrics.get("turnover", np.nan)))),
+            default=float("nan"),
+        ),
+        "n_variants": len(variants),
+    }
+
+    flags = []
+    if np.isfinite(sub_sharpe) and np.isfinite(base_sharpe) and sub_sharpe <= 0 < base_sharpe:
+        flags.append("subuniverse_flips_sign")
+    elif np.isfinite(sub_sharpe) and np.isfinite(base_sharpe) and sub_sharpe < 0.5 * abs(base_sharpe):
+        flags.append("subuniverse_halves_edge")
+    window_lo, window_hi = summary["window_sharpe_span"]
+    if np.isfinite(window_lo) and np.isfinite(window_hi) and window_lo < 0 < window_hi:
+        flags.append("window_span_crosses_zero")
+    if np.isfinite(summary["min_pnl_corr"]) and summary["min_pnl_corr"] < 0.3:
+        flags.append("variant_pnl_decorrelates")
+    summary["flags"] = flags
+    return summary
+
+
 def run_stability(
     panel: PanelStore,
     attempt: dict,
@@ -321,6 +379,20 @@ def run_stability(
         {variant.name: variant.pnl for variant in variants if not variant.pnl.empty}, axis=1
     )
     pnl_frame.to_csv(out / "pnl_daily.csv", index_label="date")
+
+    baseline_cfg = baseline_settings(attempt)
+    expression = winning_expression(attempt)
+    meta = {
+        "run_id": run_id,
+        "hypothesis": attempt.get("hypothesis"),
+        "expression": expression,
+        "baseline": {
+            "decay": baseline_cfg.decay,
+            "transform": baseline_cfg.transform,
+            "cap_filter": baseline_cfg.cap_filter,
+        },
+    }
+    (out / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
     draw_single_panel(
         {variant.name: variant.pnl for variant in variants if not variant.pnl.empty},
@@ -365,6 +437,39 @@ def build_index(root: str | Path = STABILITY_DIR) -> Path:
         if not metrics.exists():
             continue
         table = pd.read_csv(metrics)
+        meta_path = folder / "meta.json"
+        expression = ""
+        if meta_path.exists():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            expression = meta.get("expression", "")
+        else:
+            readme = folder / "README.md"
+            if readme.exists():
+                run_id = folder.name.split("__", 1)[0]
+                hypothesis = folder.name.split("__", 1)[1]
+                baseline: dict = {}
+                for line in readme.read_text(encoding="utf-8").splitlines():
+                    if line.startswith("- expression:"):
+                        expression = line.split("`")[1] if "`" in line else line.split(":", 1)[1].strip()
+                    elif line.startswith("- baseline:"):
+                        parts = line.split(":", 1)[1]
+                        for chunk in parts.split(","):
+                            if "=" in chunk:
+                                key, _, value = chunk.partition("=")
+                                baseline[key.strip()] = value.strip()
+                meta_path.write_text(
+                    json.dumps(
+                        {
+                            "run_id": run_id,
+                            "hypothesis": hypothesis,
+                            "expression": expression,
+                            "baseline": baseline,
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
         base = table[table["group"] == "original"]
         if base.empty:
             continue
@@ -383,6 +488,7 @@ def build_index(root: str | Path = STABILITY_DIR) -> Path:
             {
                 "factor": folder.name.split("__", 1)[-1],
                 "run": folder.name.split("__", 1)[0],
+                "expression": expression,
                 "sharpe": base["sharpe"],
                 "subuniverse": float(sub.iloc[0]) if len(sub) else np.nan,
                 "decay_range": f"{decay_lo:.2f}..{decay_hi:.2f}",

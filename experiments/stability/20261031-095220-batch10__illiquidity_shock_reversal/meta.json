@@ -1,0 +1,10 @@
+{
+  "run_id": "20261031-095220-batch10",
+  "hypothesis": "illiquidity_shock_reversal",
+  "expression": "(rank((ts_mean(amount, 240) / ts_mean(amount, 60))) * (1 - rank(abs(ts_returns(close, 5, 0)))))",
+  "baseline": {
+    "decay": "0",
+    "transform": "none",
+    "cap": "None"
+  }
+}

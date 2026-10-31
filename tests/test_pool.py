@@ -166,6 +166,9 @@ class TestEndToEnd(unittest.TestCase):
                 n_hypotheses=1,
                 max_rounds=1,
                 grid=GridConfig(max_evals=24),
+                # the stability battery is exercised in its own tests; keep this
+                # end-to-end run focused on the mining loop + pool wiring
+                compute_stability=False,
                 split=SampleSplit(
                     train_end="2021-09-30",
                     test_start="2021-10-01",

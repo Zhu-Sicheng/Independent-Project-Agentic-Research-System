@@ -566,9 +566,15 @@ python -m factorlab.stability --run <run_id> --all
 python -m factorlab.stability --index        # rebuild the summary table
 ```
 
+The mining loop runs the same battery automatically on the best configuration and
+hands the compact summary (`subuniverse_sharpe`, the transform / decay / window
+Sharpe spans, `min_pnl_corr`, `flags`) to Agent 3, which is instructed never to
+accept a factor whose sub-universe flips sign or whose variants decorrelate.
+Disable it for a run with `--no-stability`.
+
 Outputs go to `experiments/stability/<run_id>__<factor>/`: `pnl.png` puts the
 baseline and every check on a single axes (colour-coded by check group),
-plus `metrics.csv` and `README.md`. They never overwrite the
+plus `metrics.csv`, `meta.json` (expression + baseline config) and `README.md`. They never overwrite the
 batch figures or the single-run view.
 
 ### 9. Known limitations / next steps
@@ -1100,8 +1106,13 @@ python -m factorlab.stability --run <run_id> --all
 python -m factorlab.stability --index        # 重建汇总表
 ```
 
+挖掘循环会对最优配置自动跑同一套检验，把精简结果（`subuniverse_sharpe`、transform / decay /
+window 的 Sharpe 区间、`min_pnl_corr`、`flags`）交给 Agent 3；评审规则明确：子全集翻转符号、
+或变体 PnL 失去相关性的因子不得 accept。单次运行可用 `--no-stability` 关闭。
+
 结果写到 `experiments/stability/<run_id>__<factor>/`（`pnl.png` 把原配置与所有检验曲线画在
-同一张图上、按检验组用颜色区分，另有 `metrics.csv`、`README.md`），**不覆盖**批次图与单次 run 的图。
+同一张图上、按检验组用颜色区分，另有 `metrics.csv`、`meta.json`（表达式与基线配置）、
+`README.md`），**不覆盖**批次图与单次 run 的图。
 
 ### 9. 已知限制 / 下一步
 
