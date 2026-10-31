@@ -13,7 +13,6 @@ from factorlab.expr.validate import validate_expression
 from factorlab.xy_pipeline import (
     FIELD_MAP,
     apply_llm_overrides,
-    append_results_store,
     display_evaluation,
     hypothesis_from_idea,
     load_incremental,
@@ -219,28 +218,62 @@ class TestIncrementalResults(unittest.TestCase):
             self.assertIn("-ts_returns(close, 5)", seen)
             self.assertEqual(load_incremental(Path(tmp) / "missing.json"), ([], set()))
 
-    def test_results_store_is_append_only_and_idempotent(self):
+    def test_result_store_upserts_and_revises(self):
+        from factorlab.xy_results import load_evaluations, upsert_evaluations
+
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-            path = Path(tmp) / "results.jsonl"
-            records = [
-                {
-                    "expression": "-rank(ts_mean(close, 20))",
-                    "status": "evaluated",
-                    "decision": "optimize",
-                    "round": 0,
-                    "is": {"metrics": {"sharpe": 0.9}},
-                    "display": {"segments": {"oos": {"sharpe": 0.2}}},
-                }
-            ]
-            first = append_results_store(path, "run_a", records)
-            second = append_results_store(path, "run_a", records)
-            self.assertEqual(first, 1)
-            self.assertEqual(second, 0)
-            lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-            self.assertEqual(len(lines), 1)
-            item = json.loads(lines[0])
-            self.assertEqual(item["run_id"], "run_a")
-            self.assertAlmostEqual(item["display"]["oos_sharpe"], 0.2)
+            path = Path(tmp) / "evaluations.json"
+            original = {
+                "expression": "-rank(ts_mean(close, 20))",
+                "status": "evaluated",
+                "decision": "optimize",
+                "is": {"metrics": {"sharpe": 0.9}},
+                "display": {"segments": {"oos": {"sharpe": 0.2}}},
+            }
+            first = upsert_evaluations(path, [original], "run_a")
+            self.assertEqual(first["inserted"], 1)
+            changed = dict(original)
+            changed["decision"] = "accept"
+            second = upsert_evaluations(path, [changed], "run_a")
+            self.assertEqual(second["updated"], 1)
+            third = upsert_evaluations(path, [changed], "run_a")
+            self.assertEqual(third["unchanged"], 1)
+            records = load_evaluations(path)
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0]["decision"], "accept")
+            self.assertEqual(records[0]["revision"], 2)
+
+    def test_result_store_events_index_and_publish(self):
+        from factorlab.xy_results import (
+            load_evaluations,
+            publish_run,
+            rebuild_index,
+            record_events,
+        )
+
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            results = Path(tmp) / "xy"
+            run_dir = results / "run_a"
+            run_dir.mkdir(parents=True)
+            record = {
+                "expression": "-rank(ts_mean(close, 20))",
+                "status": "evaluated",
+                "decision": "optimize",
+                "is": {"metrics": {"sharpe": 0.9}},
+                "display": {"segments": {"is": {"sharpe": 0.9}, "oos": {"sharpe": 0.2}, "holdout": {"sharpe": 0.1}}},
+            }
+            (run_dir / "evaluations.json").write_text(json.dumps({"records": [record]}), encoding="utf-8")
+            events = Path(tmp) / "events.jsonl"
+            written = record_events(events, "run_a", [record])
+            self.assertEqual(written, 1)
+            record_events(events, "run_a", [record])
+            self.assertEqual(len(events.read_text(encoding="utf-8").splitlines()), 2)
+            index_stats = rebuild_index(results, Path(tmp) / "index.json", Path(tmp) / "results.csv")
+            self.assertEqual(index_stats["n_records"], 1)
+            self.assertTrue((Path(tmp) / "results.csv").exists())
+            published = publish_run("run_a", results_dir=results, published_dir=Path(tmp) / "published", top=1)
+            self.assertTrue((published / "README.md").exists())
+            self.assertTrue((published / "summary.csv").exists())
 
 
 class TestHypothesis(unittest.TestCase):

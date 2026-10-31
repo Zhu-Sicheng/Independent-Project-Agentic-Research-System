@@ -210,6 +210,8 @@ def run_agent2(
     mode: str = "offline",
     min_ideas: int = 2,
     max_ideas: int = 6,
+    max_ideas_per_dataset: int = 6,
+    max_ideas_per_family: int = 2,
     knowledge_cutoff: Optional[str] = None,
     llm_max_turns: Optional[int] = None,
     llm_tool_calls: Optional[int] = None,
@@ -235,6 +237,8 @@ def run_agent2(
             "mode": mode,
             "min_ideas": int(min_ideas),
             "max_ideas": int(max_ideas),
+            "max_ideas_per_dataset": int(max_ideas_per_dataset),
+            "max_ideas_per_family": int(max_ideas_per_family),
             "knowledge_cutoff": knowledge_cutoff,
         }
     )
@@ -356,14 +360,9 @@ def evaluations_path(output_root: Path) -> Path:
 
 def load_incremental(path: Path) -> tuple[list[dict], set]:
     """Resume an existing run: previous records plus the canonical expressions."""
-    if not path.exists():
-        return [], set()
-    try:
-        records = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return [], set()
-    if not isinstance(records, list):
-        return [], set()
+    from .xy_results import load_evaluations
+
+    records = load_evaluations(path)
     seen = {
         _canonical(record["expression"])
         for record in records
@@ -389,63 +388,6 @@ def merge_records(previous: list[dict], new: list[dict]) -> list[dict]:
             known.add(canonical)
         merged.append(record)
     return merged
-
-
-def append_results_store(path: Path, run_id: str, records: list[dict]) -> int:
-    """Append evaluation summaries to the global results file (idempotent)."""
-    from datetime import datetime, timezone
-
-    path = Path(path)
-    existing: set = set()
-    if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            try:
-                item = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if item.get("run_id") and item.get("expression"):
-                existing.add((item["run_id"], item["expression"]))
-    written = 0
-    lines = []
-    now = datetime.now(timezone.utc).isoformat()
-    for record in records:
-        expression = record.get("expression")
-        if not expression or record.get("status") != "evaluated":
-            continue
-        key = (run_id, expression)
-        if key in existing:
-            continue
-        existing.add(key)
-        is_metrics = ((record.get("is") or {}).get("metrics")) or {}
-        display = record.get("display") or {}
-        segments = display.get("segments") or {}
-        lines.append(
-            {
-                "run_id": run_id,
-                "expression": expression,
-                "round": record.get("round"),
-                "decision": record.get("decision"),
-                "in_sample": {
-                    key: is_metrics.get(key)
-                    for key in ("sharpe", "ann_return", "turnover", "max_drawdown", "rank_ic")
-                },
-                "display": {
-                    "is_sharpe": (segments.get("is") or {}).get("sharpe"),
-                    "oos_sharpe": (segments.get("oos") or {}).get("sharpe"),
-                    "holdout_sharpe": (segments.get("holdout") or {}).get("sharpe"),
-                },
-                "updated_at": now,
-            }
-        )
-        written += 1
-    if lines:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
-            for item in lines:
-                handle.write(json.dumps(_json_safe(item), ensure_ascii=False) + "\n")
-    return written
 
 
 def round_improved(round_best: float, best_so_far: float, tolerance: float = 1e-9) -> bool:
@@ -797,6 +739,8 @@ def run_pipeline(
     agent_modes: Optional[dict] = None,
     min_ideas: int = 2,
     max_ideas: int = 6,
+    max_ideas_per_dataset: int = 6,
+    max_ideas_per_family: int = 2,
     llm_max_turns: Optional[int] = None,
     llm_tool_calls: Optional[int] = None,
     llm_token_budget: Optional[int] = None,
@@ -851,6 +795,8 @@ def run_pipeline(
     agent2_dir, agent2_result = run_agent2(
         agent1_dir, output_root / "agent2", memory_db, operator_file,
         mode=modes["agent2"], min_ideas=min_ideas, max_ideas=max_ideas,
+        max_ideas_per_dataset=max_ideas_per_dataset,
+        max_ideas_per_family=max_ideas_per_family,
         llm_max_turns=llm_max_turns, llm_tool_calls=llm_tool_calls,
         llm_token_budget=llm_token_budget,
     )
@@ -980,11 +926,16 @@ def run_pipeline(
         panel_full, records, run_id, output_root, verbose=verbose,
         only_missing=incremental and not force,
     )
-    new_result_rows = append_results_store(
-        EXPERIMENTS / "results.jsonl", run_id, records
+    from .xy_results import EVENTS_PATH, record_events, rebuild_index, upsert_evaluations
+
+    store_stats = upsert_evaluations(eval_path, records, run_id)
+    events_written = record_events(EVENTS_PATH, run_id, records)
+    index_stats = rebuild_index()
+    say(
+        f"results store: inserted {store_stats['inserted']}, updated {store_stats['updated']}, "
+        f"unchanged {store_stats['unchanged']}; {events_written} events; "
+        f"index {index_stats['n_records']} records"
     )
-    if new_result_rows:
-        say(f"results store: appended {new_result_rows} row(s) to experiments/xy/results.jsonl")
 
     # ---- factor pool for accepted candidates (IS-selected configuration) ----
     pool = FactorPool(output_root / "pool")
@@ -1035,8 +986,8 @@ def run_pipeline(
             "enabled": bool(incremental and not force),
             "previous_evaluations": len(previous_records),
             "total_evaluations": sum(1 for r in records if r.get("status") == "evaluated"),
-            "new_result_rows": new_result_rows,
         },
+        "results_store": {**store_stats, "events_written": events_written, **index_stats},
         "research_end": research_end,
         "data_isolation": {
             "optimisation": "in-sample only (panel cut at research_end; grid selects on IS)",
@@ -1106,8 +1057,9 @@ def run_pipeline(
         f"- incremental: {summary['incremental']['enabled']} "
         f"(resumed {summary['incremental']['previous_evaluations']} evaluations, "
         f"{summary['incremental']['total_evaluations']} total); "
-        f"new rows appended to `experiments/xy/results.jsonl`: "
-        f"{summary['incremental']['new_result_rows']}",
+        f"results store: inserted {summary['results_store']['inserted']}, "
+        f"updated {summary['results_store']['updated']}, "
+        f"index {summary['results_store']['n_records']} records",
         f"- **data isolation**: the optimisation loop sees **in-sample only** "
         f"(panel cut at {research_end}, {panel_is.shape[0]} of {panel_full.shape[0]} days); "
         f"OOS/holdout are computed only in the display layer below",
@@ -1160,6 +1112,8 @@ def main(argv: Optional[list[str]] = None) -> None:
                         help="re-evaluate records that already exist (implies no resume)")
     parser.add_argument("--min-ideas", type=int, default=2)
     parser.add_argument("--max-ideas", type=int, default=6)
+    parser.add_argument("--max-ideas-per-dataset", type=int, default=6)
+    parser.add_argument("--max-ideas-per-family", type=int, default=2)
     parser.add_argument("--llm-max-turns", type=int, default=None, help="per-agent turn cap in LLM mode")
     parser.add_argument("--llm-tool-calls", type=int, default=None, help="per-agent tool-call cap in LLM mode")
     parser.add_argument("--llm-token-budget", type=int, default=None,
@@ -1195,6 +1149,8 @@ def main(argv: Optional[list[str]] = None) -> None:
         agent_modes=agent_modes,
         min_ideas=args.min_ideas,
         max_ideas=args.max_ideas,
+        max_ideas_per_dataset=args.max_ideas_per_dataset,
+        max_ideas_per_family=args.max_ideas_per_family,
         llm_max_turns=args.llm_max_turns,
         llm_tool_calls=args.llm_tool_calls,
         llm_token_budget=args.llm_token_budget,
