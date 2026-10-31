@@ -22,6 +22,7 @@ from .backtest.grid import GridSearch
 from .backtest.split import resolve_split
 from .config import DEFAULT_RUNS_DIR, MiningConfig
 from .data.panel import PanelStore
+from .experiments import rebuild_ledger
 from .expr.spec import FactorSpec
 from .markdown import md_table
 from .pool.pool import FactorPool
@@ -110,9 +111,15 @@ class MiningLoop:
 
         self.pool.recompute_correlations()
         self._write_report(panel_summary)
+        try:
+            rebuild_ledger(self.run_dir.parent)
+        except Exception as exc:  # the ledger must never break a run
+            self._log(f"ledger update failed: {exc}")
         elapsed = time.time() - self._started
         result = {
             "run_id": self.run_id,
+            "llm": self.llm.name,
+            "data": self.panel.name,
             "n_hypotheses": len(hyps),
             "n_factors_added": len(self.added),
             "added": self.added,

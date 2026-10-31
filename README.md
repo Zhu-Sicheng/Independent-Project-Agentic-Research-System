@@ -47,6 +47,9 @@ python -m factorlab run --data data/processed/panel --hypotheses 3 --rounds 2 --
 
 # 2) inspect the pool and correlations
 python -m factorlab pool
+
+# 3) every attempt (accepted or not) in one table
+python -m factorlab ledger --rebuild
 ```
 
 Outputs:
@@ -67,7 +70,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # full
 
 > In PowerShell an expression starting with `-` needs the `--expression="..."` form,
 > otherwise it is parsed as a flag.
-> Tests: `python -m unittest discover -s tests` (73 cases).
+> Tests: `python -m unittest discover -s tests` (77 cases).
 
 ### 2. Layout
 
@@ -105,6 +108,8 @@ factorlab/
 docs/
   agent_contracts.md   # JSON contracts between 2.1 / 2.2 / 3
   operators.md         # approved operator signatures and definitions
+experiments/
+  ledger.csv           # every attempt across runs, with IS/OOS/holdout metrics
 ```
 
 ### 3. Data
@@ -488,7 +493,30 @@ pool.report()                      # markdown
 Correlations are computed on whatever is in the pool: two factors give one row,
 n factors give n(n-1)/2. High correlation is flagged, not auto-rejected.
 
-### 8. Known limitations / next steps
+### 8. Experiment records
+
+Each run writes `runs/<run_id>/`:
+
+| file | content |
+|---|---|
+| `attempts.jsonl` | one JSON per attempt, appended as it happens |
+| `run.json` | final summary, including all attempts |
+| `report.md` | human-readable report |
+| `panel_summary.json` | data-profile snapshot at run start |
+| `equity.png` | cumulative pnl, only when a factor is accepted |
+
+Every attempt — accepted **or abandoned** — is also flattened into one tracked
+table, `experiments/ledger.csv`, with full-sample, in-sample, out-of-sample,
+holdout and sub-universe metrics side by side. Real out-of-sample performance is
+therefore recorded even for rejected ideas. The ledger is rebuilt after each run
+and can be refreshed or queried on demand:
+
+```powershell
+python -m factorlab ledger --rebuild
+python -m factorlab ledger --sort sharpe_oos --top 20
+```
+
+### 9. Known limitations / next steps
 
 1. **Only price/volume**: no sector, size neutralisation or fundamentals;
    `group_*` operators and industry neutralisation are the obvious extensions.
@@ -547,6 +575,9 @@ python -m factorlab run --data data/processed/panel --hypotheses 3 --rounds 2 --
 
 # 2) 查看因子池与相关性
 python -m factorlab pool
+
+# 3) 所有尝试（无论是否入池）汇总到一张表
+python -m factorlab ledger --rebuild
 ```
 
 产物：
@@ -566,7 +597,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # 走�
 ```
 
 > PowerShell 里以 `-` 开头的表达式要用 `--expression="..."` 的等号写法，否则会被当成参数名。
-> 测试：`python -m unittest discover -s tests`（73 个用例）。
+> 测试：`python -m unittest discover -s tests`（77 个用例）。
 
 ### 2. 目录结构
 
@@ -604,6 +635,8 @@ factorlab/
 docs/
   agent_contracts.md   # 2.1 / 2.2 / 3 的 JSON 接口契约
   operators.md         # 白名单算子的签名与定义
+experiments/
+  ledger.csv           # 跨 run 的全部尝试，含 IS/OOS/holdout 指标
 ```
 
 ### 3. 数据模块
@@ -948,7 +981,28 @@ pool.report()                      # markdown
 
 相关性对池内任意两个因子都计算：两个因子一行，n 个因子 n(n-1)/2 行。相关性高只标记、不自动拒绝。
 
-### 8. 已知限制 / 下一步
+### 8. 实验记录
+
+每次 run 写入 `runs/<run_id>/`：
+
+| 文件 | 内容 |
+|---|---|
+| `attempts.jsonl` | 每次尝试一条 JSON，逐条追加 |
+| `run.json` | 最终汇总（含全部 attempts） |
+| `report.md` | 人类可读报告 |
+| `panel_summary.json` | run 开始时的数据画像快照 |
+| `equity.png` | 入池因子的累计净值（仅当有因子被接受） |
+
+所有尝试——**无论接受还是放弃**——还会被拍平成一张受版本管理的表
+`experiments/ledger.csv`，把全样本、样本内、样本外、holdout、子全集的指标并排放：
+即使因子被否，真实的样本外表现也留档。每次 run 结束自动重建，也可手动刷新/查询：
+
+```powershell
+python -m factorlab ledger --rebuild
+python -m factorlab ledger --sort sharpe_oos --top 20
+```
+
+### 9. 已知限制 / 下一步
 
 1. **只有量价**：没有行业、市值中性化、财务因子；`group_*` 类算子和行业中性化是明确的扩展点。
 2. **成本**：默认 0，`cost_bps` 可开；网格目前不对成本做敏感性分析。

@@ -109,6 +109,12 @@ def build_parser() -> argparse.ArgumentParser:
     expr.add_argument("--cost-bps", type=float, default=0.0)
     expr.add_argument("--grid", action="store_true", help="grid search instead of a single run")
 
+    ledger = sub.add_parser("ledger", help="show the aggregate experiment ledger")
+    ledger.add_argument("--rebuild", action="store_true", help="rebuild from runs/")
+    ledger.add_argument("--sort", default="sharpe_oos", help="column to sort by")
+    ledger.add_argument("--top", type=int, default=30)
+    ledger.add_argument("--out", default=str(PROJECT_ROOT / "experiments" / "ledger.csv"))
+
     pool = sub.add_parser("pool", help="inspect the factor pool")
     pool.add_argument("--pool", default=str(PROJECT_ROOT / "pool"))
     pool.add_argument("--recompute", action="store_true", help="recompute all correlations")
@@ -179,6 +185,15 @@ def cmd_expr(args) -> int:
     return 0
 
 
+def cmd_ledger(args) -> int:
+    from .experiments import load_ledger, rebuild_ledger, render
+
+    df = rebuild_ledger(out=args.out) if args.rebuild else load_ledger(args.out)
+    print(render(df, sort=args.sort, top=args.top))
+    print(f"\n{len(df)} attempts | ledger: {args.out}")
+    return 0
+
+
 def cmd_pool(args) -> int:
     pool = FactorPool(args.pool)
     if args.recompute:
@@ -195,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         "run": cmd_run,
         "expr": cmd_expr,
         "pool": cmd_pool,
+        "ledger": cmd_ledger,
     }
     return handlers[args.command](args)
 
