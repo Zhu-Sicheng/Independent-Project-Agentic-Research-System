@@ -1,4 +1,4 @@
-rank,run_id,expression_id,label,hypothesis,expression,decision,sharpe_is,sharpe_oos,sharpe_holdout,figure
+﻿rank,run_id,expression_id,label,hypothesis,expression,decision,sharpe_is,sharpe_oos,sharpe_holdout,figure
 1,sysv1-h2,expr_6a671f42de025b70689d,H01-F01,日内收盘位置与短期反转：日收益分布在当日高低区间中的位置对后续1周收益的预测,"-1 * ts_mean(safe_div(close - low, high - low), 10)",optimize,1.682546586984493,0.1213556961048716,-0.44952667072439617,figures/rank001_sysv1-h2_H01-F01.png
 2,sysv1-h3,expr_4d8ea71894c66541978e,H04-F01,指数 ETF 短期超卖反转：极端收益的均值回归,"-1 * ts_zscore(ts_returns(close, 5), 60) + -1 * safe_div(ts_mean(returns, 5), ts_std_dev(returns, 60))",optimize,1.0794627941196946,-0.1122906505939538,0.4345289123555229,figures/rank002_sysv1-h3_H04-F01.png
 3,sysv1-h5,expr_55c783b87cd7eaf458ce,H03-F01,Short-horizon overreaction reversal after standardized single-day shocks,"-1 * safe_div(ts_returns(close, 1), ts_std_dev(ts_returns(close, 1), 20))",abandon,0.9585972150853358,0.7882648182522416,0.22510130352136345,figures/rank003_sysv1-h5_H03-F01.png
