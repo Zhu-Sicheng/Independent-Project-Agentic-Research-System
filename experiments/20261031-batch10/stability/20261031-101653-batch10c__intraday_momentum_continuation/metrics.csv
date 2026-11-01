@@ -1,4 +1,4 @@
-variant,group,sharpe,ann_return,turnover,max_drawdown,rank_ic,n_names,note,pnl_corr_with_original
+﻿variant,group,sharpe,ann_return,turnover,max_drawdown,rank_ic,n_names,note,pnl_corr_with_original
 original,original,0.6006615448660892,0.05321606631127729,8.281891817973529,-0.2980983124103299,0.00027919771577217413,496.93739776951674,"decay=60, transform=sign, cap=None",1.0
 subuniverse(rank(cap)>0.3),subuniverse,-0.10821553573092262,-0.009250856754252412,7.932518594221579,-0.4095848952785869,,347.75747211895913,"if_else(rank(cap) > 0.3, factor, nan)",-0.14542234467828297
 cap_filter=0.3,cap,-0.10821553573092262,-0.009250856754252412,7.932518594221579,-0.4095848952785869,,347.75747211895913,drop the smallest names before demeaning,-0.14542234467828297

@@ -267,7 +267,7 @@ def rebuild_index(
         encoding="utf-8",
     )
     frame = pd.DataFrame(rows)
-    frame.to_csv(csv_path, index=False, encoding="utf-8")
+    frame.to_csv(csv_path, index=False, encoding="utf-8-sig")
     return {"n_records": len(rows), "runs": len({row["run_id"] for row in rows})}
 
 
@@ -400,7 +400,9 @@ def _copy_figures(
             }
         )
     if index_rows:
-        pd.DataFrame(index_rows).to_csv(figures / "index.csv", index=False, encoding="utf-8")
+        pd.DataFrame(index_rows).to_csv(
+            figures / "index.csv", index=False, encoding="utf-8-sig"
+        )
     return index_rows
 
 
@@ -452,7 +454,9 @@ def publish_run(
         row["figure"] = _resolve_figure(source, record)
         rows.append(row)
     frame = pd.DataFrame(rows).sort_values("sharpe_is", ascending=False, na_position="last")
-    frame.drop(columns=["figure"]).to_csv(target / "summary.csv", index=False, encoding="utf-8")
+    frame.drop(columns=["figure"]).to_csv(
+        target / "summary.csv", index=False, encoding="utf-8-sig"
+    )
 
     index_rows = _copy_figures(frame, source, figures, top)
 
@@ -521,7 +525,9 @@ def publish_combined(
         directory.mkdir(parents=True, exist_ok=True)
 
     frame = pd.DataFrame(rows).sort_values("sharpe_is", ascending=False, na_position="last")
-    frame.drop(columns=["figure"]).to_csv(target / "summary.csv", index=False, encoding="utf-8")
+    frame.drop(columns=["figure"]).to_csv(
+        target / "summary.csv", index=False, encoding="utf-8-sig"
+    )
     index_rows = _copy_figures(frame, results_dir, figures, top, per_run_labels=True)
 
     _overview_plot(rows, target / "overview.png", f"{name} | {len(rows)} evaluated expressions")

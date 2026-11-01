@@ -9,6 +9,7 @@ dist/
 venv/
 
 # local runtime artifacts
+*.tmp
 runs/
 pool/
 experiments/*/runs/
