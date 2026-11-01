@@ -35,7 +35,7 @@ from .config import PROJECT_ROOT
 from .experiments_store import (
     EXPERIMENTS,
     dated_experiment_dir,
-    date_of,
+    experiment_date_for_run,
     find_run_dir,
     iter_evaluation_files,
 )
@@ -320,20 +320,111 @@ def _overview_plot(rows: list[dict], out_path: Path, title: str) -> Optional[Pat
     return None
 
 
+def _fmt(value) -> str:
+    return "-" if value is None else f"{value:.3f}"
+
+
+def _resolve_figure(run_dir: Path, record: dict) -> Optional[Path]:
+    """Find the display figure for a record, tolerating stale/relative paths."""
+    display = record.get("display") or {}
+    candidates: list[Path] = []
+    figure = display.get("figure")
+    if figure:
+        path = Path(str(figure))
+        candidates.append(path if path.is_absolute() else run_dir / path)
+    expression_id = record.get("expression_id")
+    if expression_id:
+        candidates.append(run_dir / "display" / expression_id / "pnl.png")
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _row_metrics(record: dict) -> dict:
+    is_metrics = ((record.get("is") or {}).get("metrics")) or {}
+    segments = ((record.get("display") or {}).get("segments")) or {}
+    return {
+        "expression": record.get("expression"),
+        "expression_id": record.get("expression_id"),
+        "decision": record.get("decision"),
+        "sharpe_is": is_metrics.get("sharpe"),
+        "ann_return_is": is_metrics.get("ann_return"),
+        "turnover_is": is_metrics.get("turnover"),
+        "rank_ic_is": is_metrics.get("rank_ic"),
+        "sharpe_oos": (segments.get("oos") or {}).get("sharpe"),
+        "sharpe_holdout": (segments.get("holdout") or {}).get("sharpe"),
+    }
+
+
+def _copy_figures(
+    frame: pd.DataFrame,
+    run_dir: Path,
+    figures: Path,
+    top: int,
+    per_run_labels: bool = False,
+) -> list[dict]:
+    """Copy display figures into ``figures/`` and write ``figures/index.csv``."""
+    limit = len(frame) if not top else max(0, int(top))
+    index_rows: list[dict] = []
+    for rank, (_, row) in enumerate(frame.iterrows(), start=1):
+        if rank > limit:
+            break
+        figure = row.get("figure")
+        if not figure or not Path(str(figure)).is_file():
+            continue
+        expression_id = str(row.get("expression_id") or f"expr{rank:03d}")
+        suffix = Path(str(figure)).suffix or ".png"
+        run_label = row.get("run_id") if per_run_labels else run_dir.name
+        destination = figures / f"rank{rank:03d}_{run_label}_{expression_id}{suffix}"
+        shutil.copyfile(Path(str(figure)), destination)
+        index_rows.append(
+            {
+                "rank": rank,
+                "run_id": row.get("run_id", run_dir.name),
+                "expression_id": expression_id,
+                "expression": row.get("expression"),
+                "decision": row.get("decision"),
+                "sharpe_is": row.get("sharpe_is"),
+                "sharpe_oos": row.get("sharpe_oos"),
+                "sharpe_holdout": row.get("sharpe_holdout"),
+                "figure": destination.relative_to(figures.parent).as_posix(),
+            }
+        )
+    if index_rows:
+        pd.DataFrame(index_rows).to_csv(figures / "index.csv", index=False, encoding="utf-8")
+    return index_rows
+
+
+def _figure_table(index_rows: list[dict]) -> list[str]:
+    lines = [
+        "| rank | run | expression | IS | OOS | holdout | decision | figure |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for item in index_rows:
+        lines.append(
+            f"| {item['rank']} | `{item['run_id']}` | `{str(item['expression'])[:80]}` | "
+            f"{_fmt(item.get('sharpe_is'))} | {_fmt(item.get('sharpe_oos'))} | "
+            f"{_fmt(item.get('sharpe_holdout'))} | {item.get('decision') or '-'} | "
+            f"`{item['figure']}` |"
+        )
+    return lines
+
+
 def publish_run(
     run_id: str,
     results_dir: str | Path = RESULTS_DIR,
     published_dir: str | Path = PUBLISHED_DIR,
-    top: int = 10,
+    top: int = 0,
 ) -> Path:
-    """Copy a run's summary, top display figures and overview chart for git."""
+    """Copy a single run's summary, display figures and overview chart for git."""
     results_dir = Path(results_dir)
     source = _run_dir(run_id, results_dir)
     evaluations = load_evaluations(source / "evaluations.json")
     if not evaluations:
         raise FileNotFoundError(f"no evaluations for run {run_id!r} under {source}")
     if str(published_dir) == str(EXPERIMENTS):
-        target = dated_experiment_dir(run_id, date_of(run_id))
+        target = dated_experiment_dir(run_id, experiment_date_for_run(run_id))
     else:
         target = Path(published_dir) / run_id
     figures = target / "figures"
@@ -344,69 +435,39 @@ def publish_run(
     for record in evaluations:
         if record.get("status") != "evaluated":
             continue
-        is_metrics = ((record.get("is") or {}).get("metrics")) or {}
-        segments = ((record.get("display") or {}).get("segments")) or {}
-        rows.append(
-            {
-                "expression": record.get("expression"),
-                "decision": record.get("decision"),
-                "sharpe_is": is_metrics.get("sharpe"),
-                "turnover_is": is_metrics.get("turnover"),
-                "rank_ic_is": is_metrics.get("rank_ic"),
-                "sharpe_oos": (segments.get("oos") or {}).get("sharpe"),
-                "sharpe_holdout": (segments.get("holdout") or {}).get("sharpe"),
-                "figure": (record.get("display") or {}).get("figure"),
-            }
-        )
-    frame = pd.DataFrame(rows)
-    if not frame.empty:
-        frame = frame.sort_values("sharpe_is", ascending=False, na_position="last")
-    frame.to_csv(target / "summary.csv", index=False, encoding="utf-8")
+        row = _row_metrics(record)
+        row["figure"] = _resolve_figure(source, record)
+        rows.append(row)
+    frame = pd.DataFrame(rows).sort_values("sharpe_is", ascending=False, na_position="last")
+    frame.drop(columns=["figure"]).to_csv(target / "summary.csv", index=False, encoding="utf-8")
 
-    copied: list[tuple[str, Path]] = []
-    if not frame.empty:
-        for rank, (_, row) in enumerate(frame.iterrows(), start=1):
-            if rank > max(0, int(top)):
-                break
-            figure = row.get("figure")
-            if not figure or not Path(str(figure)).exists():
-                continue
-            suffix = Path(str(figure)).suffix or ".png"
-            destination = figures / f"rank{rank:02d}_expr_{rank}{suffix}"
-            shutil.copyfile(Path(str(figure)), destination)
-            copied.append((str(row["expression"]), destination))
+    index_rows = _copy_figures(frame, source, figures, top)
 
-    report = source / "report.md"
-    if report.exists():
-        shutil.copyfile(report, target / "report.md")
-    run_json = source / "run.json"
-    if run_json.exists():
-        shutil.copyfile(run_json, target / "run.json")
+    for name in ("report.md", "run.json"):
+        candidate = source / name
+        if candidate.exists():
+            shutil.copyfile(candidate, target / name)
     _overview_plot(rows, target / "overview.png", f"{run_id} | {len(rows)} evaluated expressions")
 
     lines = [
         f"# Published results: `{run_id}`",
         "",
         f"- evaluated expressions: {len(rows)}",
-        f"- source run: `experiments/xy/{run_id}` (local working copy)",
-        "- data isolation: optimisation and the reviewer saw in-sample only; OOS/holdout are display-only",
+        f"- display figures: {len(index_rows)} (every evaluated expression unless --top is set)",
+        "- data isolation: the optimisation loop and the reviewer saw in-sample only; "
+        "OOS/holdout are display-only and were never fed back",
         "",
         "## Summary",
         "",
         md_table(
-            frame[
-                ["expression", "sharpe_is", "turnover_is", "sharpe_oos", "sharpe_holdout", "decision"]
-            ].head(60)
+            frame[["expression", "sharpe_is", "turnover_is", "sharpe_oos", "sharpe_holdout", "decision"]]
             if not frame.empty
             else frame
         ),
         "",
         "## Figures",
         "",
-        "| expression | figure |",
-        "|---|---|",
-    ]
-    lines += [f"| `{expression[:90]}` | `{path.relative_to(target).as_posix()}` |" for expression, path in copied]
+    ] + _figure_table(index_rows)
     (target / "README.md").write_text("\n".join(lines), encoding="utf-8")
     return target
 
@@ -414,25 +475,14 @@ def publish_run(
 def _collect_rows(run_ids: list[str], results_dir: Path) -> list[dict]:
     rows = []
     for run_id in run_ids:
-        for record in load_evaluations(_run_dir(run_id, results_dir) / "evaluations.json"):
+        run_dir = _run_dir(run_id, results_dir)
+        for record in load_evaluations(run_dir / "evaluations.json"):
             if record.get("status") != "evaluated":
                 continue
-            is_metrics = ((record.get("is") or {}).get("metrics")) or {}
-            segments = ((record.get("display") or {}).get("segments")) or {}
-            rows.append(
-                {
-                    "run_id": run_id,
-                    "expression": record.get("expression"),
-                    "decision": record.get("decision"),
-                    "sharpe_is": is_metrics.get("sharpe"),
-                    "ann_return_is": is_metrics.get("ann_return"),
-                    "turnover_is": is_metrics.get("turnover"),
-                    "rank_ic_is": is_metrics.get("rank_ic"),
-                    "sharpe_oos": (segments.get("oos") or {}).get("sharpe"),
-                    "sharpe_holdout": (segments.get("holdout") or {}).get("sharpe"),
-                    "figure": (record.get("display") or {}).get("figure"),
-                }
-            )
+            row = _row_metrics(record)
+            row["run_id"] = run_id
+            row["figure"] = _resolve_figure(run_dir, record)
+            rows.append(row)
     return rows
 
 
@@ -441,38 +491,25 @@ def publish_combined(
     run_ids: Iterable[str],
     results_dir: str | Path = RESULTS_DIR,
     published_dir: str | Path = PUBLISHED_DIR,
-    top: int = 15,
+    top: int = 0,
 ) -> Path:
-    """Merge several runs into one publishable folder (summary + top figures)."""
+    """Merge several runs into one publishable folder (summary + every figure)."""
     results_dir = Path(results_dir)
     run_ids = list(run_ids)
     rows = _collect_rows(run_ids, results_dir)
     if not rows:
         raise FileNotFoundError(f"no evaluated expressions for runs {run_ids}")
-    first_run = list(run_ids)[0] if run_ids else ""
     if str(published_dir) == str(EXPERIMENTS):
-        target = dated_experiment_dir(name, date_of(first_run))
+        target = dated_experiment_dir(name, experiment_date_for_run(run_ids[0]))
     else:
         target = Path(published_dir) / name
     figures = target / "figures"
     for directory in (target, figures):
         directory.mkdir(parents=True, exist_ok=True)
+
     frame = pd.DataFrame(rows).sort_values("sharpe_is", ascending=False, na_position="last")
     frame.drop(columns=["figure"]).to_csv(target / "summary.csv", index=False, encoding="utf-8")
-
-    copied: list[tuple[str, str, Path]] = []
-    used = 0
-    for _, row in frame.iterrows():
-        if used >= max(0, int(top)):
-            break
-        figure = row.get("figure")
-        if not figure or not Path(str(figure)).exists():
-            continue
-        suffix = Path(str(figure)).suffix or ".png"
-        used += 1
-        destination = figures / f"rank{used:02d}_{row['run_id']}_{used}{suffix}"
-        shutil.copyfile(Path(str(figure)), destination)
-        copied.append((str(row["expression"]), str(row["run_id"]), destination))
+    index_rows = _copy_figures(frame, results_dir, figures, top, per_run_labels=True)
 
     _overview_plot(rows, target / "overview.png", f"{name} | {len(rows)} evaluated expressions")
     unique = len({_canonical(row["expression"]) for row in rows})
@@ -481,35 +518,28 @@ def publish_combined(
         "",
         f"- runs: {', '.join(f'`{run_id}`' for run_id in run_ids)}",
         f"- evaluated expressions: {len(rows)} ({unique} unique canonical forms)",
+        f"- display figures: {len(index_rows)} (every evaluated expression unless --top is set)",
         "- data isolation: the optimisation loop and the reviewer saw in-sample only; "
         "OOS/holdout are display-only and were never fed back",
         "",
         "## Summary",
         "",
         md_table(
-            frame[
-                [
-                    "run_id",
-                    "expression",
-                    "sharpe_is",
-                    "turnover_is",
-                    "rank_ic_is",
-                    "sharpe_oos",
-                    "sharpe_holdout",
-                    "decision",
-                ]
-            ].head(120)
+            frame[[
+                "run_id",
+                "expression",
+                "sharpe_is",
+                "turnover_is",
+                "rank_ic_is",
+                "sharpe_oos",
+                "sharpe_holdout",
+                "decision",
+            ]]
         ),
         "",
-        "## Figures (top by in-sample Sharpe)",
+        "## Figures",
         "",
-        "| expression | run | figure |",
-        "|---|---|---|",
-    ]
-    lines += [
-        f"| `{expression[:90]}` | `{run_id}` | `{path.relative_to(target).as_posix()}` |"
-        for expression, run_id, path in copied
-    ]
+    ] + _figure_table(index_rows)
     (target / "README.md").write_text("\n".join(lines), encoding="utf-8")
     return target
 
@@ -523,17 +553,20 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("--publish", default=None, help="run id to publish")
     parser.add_argument("--publish-combined", default=None, help="name of a combined publication")
     parser.add_argument("--runs", default="", help="comma separated run ids for --publish-combined")
-    parser.add_argument("--top", type=int, default=10, help="number of display figures to publish")
+    parser.add_argument("--top", type=int, default=0,
+                        help="number of figures to publish (0 = every evaluated expression)")
+    parser.add_argument("--all-figures", action="store_true", help="publish every display figure")
     parser.add_argument("--results-dir", default=str(RESULTS_DIR))
     args = parser.parse_args(argv)
+    top = 0 if args.all_figures else args.top
     if args.rebuild_index:
         print(rebuild_index(results_dir=args.results_dir))
     if args.publish:
-        target = publish_run(args.publish, results_dir=args.results_dir, top=args.top)
+        target = publish_run(args.publish, results_dir=args.results_dir, top=top)
         print(f"published: {target}")
     if args.publish_combined:
         run_ids = [item.strip() for item in args.runs.split(",") if item.strip()]
-        target = publish_combined(args.publish_combined, run_ids, results_dir=args.results_dir, top=args.top)
+        target = publish_combined(args.publish_combined, run_ids, results_dir=args.results_dir, top=top)
         print(f"published combined: {target}")
     if not args.rebuild_index and not args.publish and not args.publish_combined:
         parser.print_help()

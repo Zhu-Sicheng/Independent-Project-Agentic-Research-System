@@ -166,7 +166,7 @@
             "ic_positive_ratio": 0.5135176888614243
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_9b07a46f7575e2c57129\\pnl.png",
+        "figure": "runs/sysv1-h1/display/expr_9b07a46f7575e2c57129/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_9b07a46f7575e2c57129\\stability",
         "oos_sharpe": 0.09989677376127272,
         "holdout_sharpe": -0.7839661566909973
@@ -339,7 +339,7 @@
             "ic_positive_ratio": 0.5349194167306216
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_9b6abf9b3e15fe039127\\pnl.png",
+        "figure": "runs/sysv1-h1/display/expr_9b6abf9b3e15fe039127/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_9b6abf9b3e15fe039127\\stability",
         "oos_sharpe": 0.0218994237630236,
         "holdout_sharpe": 0.4510596682504575
@@ -509,7 +509,7 @@
             "ic_positive_ratio": 0.5206981773246834
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_6b5ef147a9734bed5ea4\\pnl.png",
+        "figure": "runs/sysv1-h1/display/expr_6b5ef147a9734bed5ea4/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_6b5ef147a9734bed5ea4\\stability",
         "oos_sharpe": -0.14641374439870464,
         "holdout_sharpe": 0.05850022271056209
@@ -681,7 +681,7 @@
             "ic_positive_ratio": 0.49714800360252176
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_6943ba46c8ed4bc54853\\pnl.png",
+        "figure": "runs/sysv1-h1/display/expr_6943ba46c8ed4bc54853/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_6943ba46c8ed4bc54853\\stability",
         "oos_sharpe": -0.15971950909927873,
         "holdout_sharpe": 0.31787235512504486
@@ -855,7 +855,7 @@
             "ic_positive_ratio": 0.5125281320330083
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_ccfc3239d95022ef946c\\pnl.png",
+        "figure": "runs/sysv1-h1/display/expr_ccfc3239d95022ef946c/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_ccfc3239d95022ef946c\\stability",
         "oos_sharpe": -0.40488571845719146,
         "holdout_sharpe": 0.24658218580988087
@@ -1027,7 +1027,7 @@
             "ic_positive_ratio": 0.5084243369734789
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_c470c52d49f3015f0950\\pnl.png",
+        "figure": "runs/sysv1-h1/display/expr_c470c52d49f3015f0950/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_c470c52d49f3015f0950\\stability",
         "oos_sharpe": 0.2580597256305015,
         "holdout_sharpe": -1.0828214696423712
@@ -1197,7 +1197,7 @@
             "ic_positive_ratio": 0.5062064789585226
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_a76eec433ad1789b55c5\\pnl.png",
+        "figure": "runs/sysv1-h1/display/expr_a76eec433ad1789b55c5/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_a76eec433ad1789b55c5\\stability",
         "oos_sharpe": 0.05391496523390151,
         "holdout_sharpe": -0.11568034170521818
@@ -1367,7 +1367,7 @@
             "ic_positive_ratio": 0.5299285288862418
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_6a671f42de025b70689d\\pnl.png",
+        "figure": "runs/sysv1-h2/display/expr_6a671f42de025b70689d/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_6a671f42de025b70689d\\stability",
         "oos_sharpe": 0.1213556961048716,
         "holdout_sharpe": -0.44952667072439617
@@ -1537,7 +1537,7 @@
             "ic_positive_ratio": 0.5061506150615062
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f87caff1de493ffc602c\\pnl.png",
+        "figure": "runs/sysv1-h2/display/expr_f87caff1de493ffc602c/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f87caff1de493ffc602c\\stability",
         "oos_sharpe": 0.17646521038823182,
         "holdout_sharpe": 0.8888713464317446
@@ -1706,7 +1706,7 @@
             "ic_positive_ratio": 0.5082557790453317
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f6bd6ac368dcb80dc177\\pnl.png",
+        "figure": "runs/sysv1-h2/display/expr_f6bd6ac368dcb80dc177/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f6bd6ac368dcb80dc177\\stability",
         "oos_sharpe": -0.07666144237677863,
         "holdout_sharpe": -1.373308989996752
@@ -1878,7 +1878,7 @@
             "ic_positive_ratio": 0.5138531415594246
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_4bfdd583a6727a39692e\\pnl.png",
+        "figure": "runs/sysv1-h2/display/expr_4bfdd583a6727a39692e/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_4bfdd583a6727a39692e\\stability",
         "oos_sharpe": 0.47383487939599206,
         "holdout_sharpe": -1.1278872209827342
@@ -2046,7 +2046,7 @@
             "ic_positive_ratio": 0.512797619047619
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f5c60a97a91af5c36dcd\\pnl.png",
+        "figure": "runs/sysv1-h2/display/expr_f5c60a97a91af5c36dcd/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f5c60a97a91af5c36dcd\\stability",
         "oos_sharpe": 0.7533394608482259,
         "holdout_sharpe": 1.0652601667015833
@@ -2217,7 +2217,7 @@
             "ic_positive_ratio": 0.5104558447419889
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_b478e3cb13da9301622e\\pnl.png",
+        "figure": "runs/sysv1-h2/display/expr_b478e3cb13da9301622e/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_b478e3cb13da9301622e\\stability",
         "oos_sharpe": 0.4201704438489914,
         "holdout_sharpe": -0.007583216540387324
@@ -2384,7 +2384,7 @@
             "ic_positive_ratio": 0.48001816530426883
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_410d59033c0867683025\\pnl.png",
+        "figure": "runs/sysv1-h2/display/expr_410d59033c0867683025/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_410d59033c0867683025\\stability",
         "oos_sharpe": 0.2118726128304241,
         "holdout_sharpe": 0.1418426297959531
@@ -2553,7 +2553,7 @@
             "ic_positive_ratio": 0.5073551486040229
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_cbc21111d42561e2045a\\pnl.png",
+        "figure": "runs/sysv1-h3/display/expr_cbc21111d42561e2045a/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_cbc21111d42561e2045a\\stability",
         "oos_sharpe": -0.39087025501516964,
         "holdout_sharpe": -0.2213788478206872
@@ -2725,7 +2725,7 @@
             "ic_positive_ratio": 0.4859437751004016
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_42f5cb12a5da4d29fa22\\pnl.png",
+        "figure": "runs/sysv1-h3/display/expr_42f5cb12a5da4d29fa22/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_42f5cb12a5da4d29fa22\\stability",
         "oos_sharpe": 0.030688683602479044,
         "holdout_sharpe": -0.2866210104226251
@@ -2895,7 +2895,7 @@
             "ic_positive_ratio": 0.48344272076372313
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_115e379fae3fb683da1e\\pnl.png",
+        "figure": "runs/sysv1-h3/display/expr_115e379fae3fb683da1e/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_115e379fae3fb683da1e\\stability",
         "oos_sharpe": -0.25129467746771766,
         "holdout_sharpe": -0.5753057086555733
@@ -3068,7 +3068,7 @@
             "ic_positive_ratio": 0.530851223540009
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_4d8ea71894c66541978e\\pnl.png",
+        "figure": "runs/sysv1-h3/display/expr_4d8ea71894c66541978e/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_4d8ea71894c66541978e\\stability",
         "oos_sharpe": -0.1122906505939538,
         "holdout_sharpe": 0.4345289123555229
@@ -3238,7 +3238,7 @@
             "ic_positive_ratio": 0.5366079703429101
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_dcdbc4d75226922545ca\\pnl.png",
+        "figure": "runs/sysv1-h3/display/expr_dcdbc4d75226922545ca/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_dcdbc4d75226922545ca\\stability",
         "oos_sharpe": 0.05583065951466538,
         "holdout_sharpe": 0.45195502460501474
@@ -3419,7 +3419,7 @@
             "ic_positive_ratio": 0.48971070682970474
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_d5bba96407c967f93e8c\\pnl.png",
+        "figure": "runs/sysv1-h3/display/expr_d5bba96407c967f93e8c/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_d5bba96407c967f93e8c\\stability",
         "oos_sharpe": -0.25234718895607555,
         "holdout_sharpe": 0.260950370595028
@@ -3585,7 +3585,7 @@
             "ic_positive_ratio": 0.48381804623415364
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_30c3b38734c5c617edb3\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_30c3b38734c5c617edb3/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_30c3b38734c5c617edb3\\stability",
         "oos_sharpe": -0.387986644961721,
         "holdout_sharpe": -0.6319684521886001
@@ -3760,7 +3760,7 @@
             "ic_positive_ratio": 0.5408068986757006
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_d43a43e4d20d5f093930\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_d43a43e4d20d5f093930/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_d43a43e4d20d5f093930\\stability",
         "oos_sharpe": 0.17580123689088087,
         "holdout_sharpe": 1.0460812051150155
@@ -3934,7 +3934,7 @@
             "ic_positive_ratio": 0.5266369047619047
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_8475b17af7e41c426202\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_8475b17af7e41c426202/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_8475b17af7e41c426202\\stability",
         "oos_sharpe": 0.1877555283944521,
         "holdout_sharpe": 0.5438590697643576
@@ -4105,7 +4105,7 @@
             "ic_positive_ratio": 0.5082557790453317
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_f6bd6ac368dcb80dc177\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_f6bd6ac368dcb80dc177/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_f6bd6ac368dcb80dc177\\stability",
         "oos_sharpe": -0.07666144237677863,
         "holdout_sharpe": -1.373308989996752
@@ -4278,7 +4278,7 @@
             "ic_positive_ratio": 0.4895692630947021
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_c2d03944c028fcedfda4\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_c2d03944c028fcedfda4/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_c2d03944c028fcedfda4\\stability",
         "oos_sharpe": 0.2081759584089211,
         "holdout_sharpe": -0.8777312792007209
@@ -4451,7 +4451,7 @@
             "ic_positive_ratio": 0.5000750412727
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_6e18647dda1cdef6db8c\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_6e18647dda1cdef6db8c/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_6e18647dda1cdef6db8c\\stability",
         "oos_sharpe": -0.2943904077717791,
         "holdout_sharpe": -0.23639281013107277
@@ -4624,7 +4624,7 @@
             "ic_positive_ratio": 0.4771778042959427
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_d7c6d1eb2aced211c446\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_d7c6d1eb2aced211c446/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_d7c6d1eb2aced211c446\\stability",
         "oos_sharpe": -0.07276559986639751,
         "holdout_sharpe": -0.5679737083271111
@@ -4797,7 +4797,7 @@
             "ic_positive_ratio": 0.504877682725499
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_e9258c745a801e6e3454\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_e9258c745a801e6e3454/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_e9258c745a801e6e3454\\stability",
         "oos_sharpe": 0.04190165485532625,
         "holdout_sharpe": 0.4545296618790643
@@ -4972,7 +4972,7 @@
             "ic_positive_ratio": 0.5064545181627139
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_68157494310c82e7a0f9\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_68157494310c82e7a0f9/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_68157494310c82e7a0f9\\stability",
         "oos_sharpe": 0.2053992011184965,
         "holdout_sharpe": -0.4987448281693904
@@ -5145,7 +5145,7 @@
             "ic_positive_ratio": 0.509980489269098
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_cdee0c858b6bd822f12f\\pnl.png",
+        "figure": "runs/sysv1-h4/display/expr_cdee0c858b6bd822f12f/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_cdee0c858b6bd822f12f\\stability",
         "oos_sharpe": -0.15759007642044423,
         "holdout_sharpe": 0.44573109456430415
@@ -5319,7 +5319,7 @@
             "ic_positive_ratio": 0.5253595760787282
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_2e29b94d54f782fb65ea\\pnl.png",
+        "figure": "runs/sysv1-h5/display/expr_2e29b94d54f782fb65ea/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_2e29b94d54f782fb65ea\\stability",
         "oos_sharpe": -0.05972271304231881,
         "holdout_sharpe": 0.0047453017909002675
@@ -5491,7 +5491,7 @@
             "ic_positive_ratio": 0.5488441461595824
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_55c783b87cd7eaf458ce\\pnl.png",
+        "figure": "runs/sysv1-h5/display/expr_55c783b87cd7eaf458ce/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_55c783b87cd7eaf458ce\\stability",
         "oos_sharpe": 0.7882648182522416,
         "holdout_sharpe": 0.22510130352136345
@@ -5666,7 +5666,7 @@
             "ic_positive_ratio": 0.4871281023585633
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_1a53c6ab68b85973387e\\pnl.png",
+        "figure": "runs/sysv1-h5/display/expr_1a53c6ab68b85973387e/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_1a53c6ab68b85973387e\\stability",
         "oos_sharpe": -0.10557778165141199,
         "holdout_sharpe": -0.035863397846281404
@@ -5838,7 +5838,7 @@
             "ic_positive_ratio": 0.5153788447111778
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_a836016830183e68d257\\pnl.png",
+        "figure": "runs/sysv1-h5/display/expr_a836016830183e68d257/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_a836016830183e68d257\\stability",
         "oos_sharpe": 1.0910702403591388,
         "holdout_sharpe": 0.0020121810312237263
@@ -6011,7 +6011,7 @@
             "ic_positive_ratio": 0.509459663992735
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_369d56a6bd0f915fc65a\\pnl.png",
+        "figure": "runs/sysv1-h5/display/expr_369d56a6bd0f915fc65a/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_369d56a6bd0f915fc65a\\stability",
         "oos_sharpe": -0.41463387841733695,
         "holdout_sharpe": -0.18396617260656015
@@ -6215,7 +6215,7 @@
             "ic_positive_ratio": 0.48841034843726633
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_4c37e7ff29ea3f8188b6\\pnl.png",
+        "figure": "runs/sysv1-h5/display/expr_4c37e7ff29ea3f8188b6/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_4c37e7ff29ea3f8188b6\\stability",
         "oos_sharpe": -0.30697060189886494,
         "holdout_sharpe": -0.25308641405471366
@@ -6419,7 +6419,7 @@
             "ic_positive_ratio": 0.5158479795703771
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_d3d50140cb4a529fa262\\pnl.png",
+        "figure": "runs/sysv1-h5/display/expr_d3d50140cb4a529fa262/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_d3d50140cb4a529fa262\\stability",
         "oos_sharpe": -0.3391030923370293,
         "holdout_sharpe": 0.21411264985599066
@@ -6590,7 +6590,7 @@
             "ic_positive_ratio": 0.539233858510967
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_f5b3118c93d772f933de\\pnl.png",
+        "figure": "runs/sysv1-h6/display/expr_f5b3118c93d772f933de/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_f5b3118c93d772f933de\\stability",
         "oos_sharpe": 0.017132477283241583,
         "holdout_sharpe": 0.8047871739863781
@@ -6762,7 +6762,7 @@
             "ic_positive_ratio": 0.4824402058734484
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_940b316d43e862b70b3b\\pnl.png",
+        "figure": "runs/sysv1-h6/display/expr_940b316d43e862b70b3b/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_940b316d43e862b70b3b\\stability",
         "oos_sharpe": -0.13676365887113087,
         "holdout_sharpe": -0.09256154417203269
@@ -6934,7 +6934,7 @@
             "ic_positive_ratio": 0.48471086890705417
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_52a91987ac50381c7a12\\pnl.png",
+        "figure": "runs/sysv1-h6/display/expr_52a91987ac50381c7a12/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_52a91987ac50381c7a12\\stability",
         "oos_sharpe": 0.1910312847319428,
         "holdout_sharpe": 0.3159944492048784
@@ -7107,7 +7107,7 @@
             "ic_positive_ratio": 0.5204545454545455
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_ab9f6e3170d776843bf3\\pnl.png",
+        "figure": "runs/sysv1-h6/display/expr_ab9f6e3170d776843bf3/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_ab9f6e3170d776843bf3\\stability",
         "oos_sharpe": -0.008501641577732274,
         "holdout_sharpe": 0.210391244209624
@@ -7278,7 +7278,7 @@
             "ic_positive_ratio": 0.5093111279333838
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_f2b5b5b6cf340cdb9f26\\pnl.png",
+        "figure": "runs/sysv1-h6/display/expr_f2b5b5b6cf340cdb9f26/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_f2b5b5b6cf340cdb9f26\\stability",
         "oos_sharpe": -0.25711906862727263,
         "holdout_sharpe": -1.3394326167635697
@@ -7454,7 +7454,7 @@
             "ic_positive_ratio": 0.525952595259526
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_248190f11442ff473b45\\pnl.png",
+        "figure": "runs/sysv1-h6/display/expr_248190f11442ff473b45/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_248190f11442ff473b45\\stability",
         "oos_sharpe": 0.07690156302245549,
         "holdout_sharpe": 0.43675817394756133
@@ -7625,7 +7625,7 @@
             "ic_positive_ratio": 0.5292675452038001
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_c53716fbad03a5eb1d61\\pnl.png",
+        "figure": "runs/sysv1-h6/display/expr_c53716fbad03a5eb1d61/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_c53716fbad03a5eb1d61\\stability",
         "oos_sharpe": -0.1759296624886266,
         "holdout_sharpe": 0.4814574236980164
@@ -7796,7 +7796,7 @@
             "ic_positive_ratio": 0.5156015601560155
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_6396d68d928e483d12de\\pnl.png",
+        "figure": "runs/sysv1-h6/display/expr_6396d68d928e483d12de/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_6396d68d928e483d12de\\stability",
         "oos_sharpe": 0.5526198605163395,
         "holdout_sharpe": -0.7620729265839518
@@ -7969,7 +7969,7 @@
             "ic_positive_ratio": 0.4993999399939994
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_23dfe8f217f8bd01b635\\pnl.png",
+        "figure": "runs/sysv1-h7/display/expr_23dfe8f217f8bd01b635/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_23dfe8f217f8bd01b635\\stability",
         "oos_sharpe": -0.25779790715723366,
         "holdout_sharpe": -0.2510646929524222
@@ -8140,7 +8140,7 @@
             "ic_positive_ratio": 0.50387712496272
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_bcc57e8e6d27d5582104\\pnl.png",
+        "figure": "runs/sysv1-h7/display/expr_bcc57e8e6d27d5582104/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_bcc57e8e6d27d5582104\\stability",
         "oos_sharpe": 0.29125387028618843,
         "holdout_sharpe": -1.2432499742931082
@@ -8306,7 +8306,7 @@
             "ic_positive_ratio": 0.4882220555138785
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_90005e9107ded6b5dc19\\pnl.png",
+        "figure": "runs/sysv1-h7/display/expr_90005e9107ded6b5dc19/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_90005e9107ded6b5dc19\\stability",
         "oos_sharpe": 0.5690048289024177,
         "holdout_sharpe": 0.12009060971140605
@@ -8479,7 +8479,7 @@
             "ic_positive_ratio": 0.5264026402640264
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_29f3976a7607441d7052\\pnl.png",
+        "figure": "runs/sysv1-h7/display/expr_29f3976a7607441d7052/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_29f3976a7607441d7052\\stability",
         "oos_sharpe": 0.0776015120873854,
         "holdout_sharpe": 0.4417252930787906
@@ -8651,7 +8651,7 @@
             "ic_positive_ratio": 0.5052819520904628
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_a294131603521e43f315\\pnl.png",
+        "figure": "runs/sysv1-h7/display/expr_a294131603521e43f315/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_a294131603521e43f315\\stability",
         "oos_sharpe": 0.08556382825858787,
         "holdout_sharpe": -0.032892142011105706
@@ -8824,7 +8824,7 @@
             "ic_positive_ratio": 0.5001500150015001
           }
         },
-        "figure": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_257fbfa5e1f4e8189047\\pnl.png",
+        "figure": "runs/sysv1-h7/display/expr_257fbfa5e1f4e8189047/pnl.png",
         "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_257fbfa5e1f4e8189047\\stability",
         "oos_sharpe": 0.2375839208770945,
         "holdout_sharpe": -1.1823680634913523

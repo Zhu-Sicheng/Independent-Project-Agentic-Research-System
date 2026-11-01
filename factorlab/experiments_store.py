@@ -123,6 +123,17 @@ def find_run_dir(run_id: str) -> Optional[Path]:
     return None
 
 
+def experiment_date_for_run(run_id: str) -> str:
+    """Date of the experiment directory that already contains ``run_id``."""
+    run_dir = find_run_dir(run_id)
+    if run_dir is not None:
+        run_dir = Path(run_dir).resolve()
+        for experiment in iter_experiment_dirs():
+            if run_dir == experiment or experiment.resolve() in run_dir.parents:
+                return experiment.name[:8]
+    return date_of(run_id)
+
+
 def iter_evaluation_files() -> list[Path]:
     """Every ``evaluations.json`` file in date-ordered experiment directories."""
     files: list[Path] = []

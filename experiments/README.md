@@ -11,4 +11,4 @@ and archived attempt records in `<experiment>/records/`.
 | 20261031-batch10 | 20261031 | 2026-10-31 classic batch10 | 2 | 1 |  |  |  |
 | 20261031-batch100 | 20261031 | 2026-10-31 100-hypothesis batch | 27 | 17 |  |  |  |
 | 20261031-e2e | 20261031 | 2026-10-31 end-to-end smoke run | 1 | 1 |  |  |  |
-| 20261031-systemv1_50 | 20261031 | Published results: `systemv1_50` |  |  | 16 | 7 | 56 |
+| 20261031-systemv1_50 | 20261031 | Published results: `systemv1_50` |  |  | 53 | 7 | 56 |
