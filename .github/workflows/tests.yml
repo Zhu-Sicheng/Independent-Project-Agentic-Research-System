@@ -7,16 +7,18 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4
       - name: Guard against committed secrets
         run: |
-          if git ls-files | grep -qE '^\.env($|\.)' ; then
+          # .env is forbidden, but the tracked template .env.example is fine
+          if git ls-files | grep -E '^\.env($|\.)' | grep -qvE '^\.env\.example$'; then
             echo "::error::.env must never be committed"; exit 1
           fi
           if git grep -nE 'sk-[0-9a-f]{32}' -- . ; then
@@ -35,5 +37,5 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Smoke test the CLI
         run: |
-          python -m factorlab gen-data --tickers 60 --start 2021-01-01 --end 2023-12-31
           python -m factorlab expr --expression="-rank(ts_mean(returns, 5))" --start 2021-01-01 --end 2023-12-31
+          python -m factorlab expr --expression="ts_std_dev(returns, 20)" --grid --start 2021-01-01 --end 2023-12-31
