@@ -12,6 +12,8 @@ from factorlab.data.panel import PanelStore
 from factorlab.expr.validate import validate_expression
 from factorlab.xy_pipeline import (
     FIELD_MAP,
+    _slugify_title,
+    display_labels,
     apply_llm_overrides,
     display_evaluation,
     hypothesis_from_idea,
@@ -274,6 +276,34 @@ class TestIncrementalResults(unittest.TestCase):
             published = publish_run("run_a", results_dir=results, published_dir=Path(tmp) / "published", top=1)
             self.assertTrue((published / "README.md").exists())
             self.assertTrue((published / "summary.csv").exists())
+
+
+class TestDisplayLabels(unittest.TestCase):
+    def test_labels_use_hypothesis_and_factor_ordinals(self):
+        ideas = {
+            "idea_a": {"title": "Overnight reversal: open gap predicts negative returns"},
+            "idea_b": {"title": "Volume shock reversal signal"},
+        }
+        records = [
+            {"expression_id": "e1", "idea_id": "idea_a"},
+            {"expression_id": "e2", "idea_id": "idea_b"},
+            {"expression_id": "e3", "idea_id": "idea_a"},
+        ]
+        labels = display_labels(ideas, records)
+        self.assertEqual(labels["e1"]["label"], "H01-F01")
+        self.assertEqual(labels["e2"]["label"], "H02-F01")
+        self.assertEqual(labels["e3"]["label"], "H01-F02")
+        self.assertEqual(labels["e1"]["slug"], "overnight-reversal-open-gap")
+        self.assertEqual(labels["e2"]["slug"], "volume-shock-reversal-signal")
+
+    def test_chinese_titles_fall_back_to_ordinal_only(self):
+        labels = display_labels({"idea": {"title": "日内收盘位置与短期反转"}}, [{"expression_id": "e1", "idea_id": "idea"}])
+        self.assertEqual(labels["e1"]["label"], "H01-F01")
+        self.assertEqual(labels["e1"]["slug"], "")
+
+    def test_slugify_ignores_ids_and_formula_noise(self):
+        self.assertEqual(_slugify_title("133 21-volume shock signal"), "volume-shock-signal")
+        self.assertEqual(_slugify_title(""), "")
 
 
 class TestHypothesis(unittest.TestCase):

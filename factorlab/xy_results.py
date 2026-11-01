@@ -343,10 +343,14 @@ def _resolve_figure(run_dir: Path, record: dict) -> Optional[Path]:
 
 def _row_metrics(record: dict) -> dict:
     is_metrics = ((record.get("is") or {}).get("metrics")) or {}
-    segments = ((record.get("display") or {}).get("segments")) or {}
+    display = record.get("display") or {}
+    segments = display.get("segments") or {}
     return {
         "expression": record.get("expression"),
         "expression_id": record.get("expression_id"),
+        "label": display.get("label") or "",
+        "hypothesis": display.get("hypothesis") or "",
+        "slug": display.get("slug") or "",
         "decision": record.get("decision"),
         "sharpe_is": is_metrics.get("sharpe"),
         "ann_return_is": is_metrics.get("ann_return"),
@@ -376,13 +380,17 @@ def _copy_figures(
         expression_id = str(row.get("expression_id") or f"expr{rank:03d}")
         suffix = Path(str(figure)).suffix or ".png"
         run_label = row.get("run_id") if per_run_labels else run_dir.name
-        destination = figures / f"rank{rank:03d}_{run_label}_{expression_id}{suffix}"
+        factor_label = str(row.get("label") or "").strip() or expression_id
+        safe_label = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in factor_label)
+        destination = figures / f"rank{rank:03d}_{run_label}_{safe_label}{suffix}"
         shutil.copyfile(Path(str(figure)), destination)
         index_rows.append(
             {
                 "rank": rank,
                 "run_id": row.get("run_id", run_dir.name),
                 "expression_id": expression_id,
+                "label": row.get("label") or "",
+                "hypothesis": row.get("hypothesis") or "",
                 "expression": row.get("expression"),
                 "decision": row.get("decision"),
                 "sharpe_is": row.get("sharpe_is"),
@@ -398,17 +406,22 @@ def _copy_figures(
 
 def _figure_table(index_rows: list[dict]) -> list[str]:
     lines = [
-        "| rank | run | expression | IS | OOS | holdout | decision | figure |",
-        "|---|---|---|---|---|---|---|---|",
+        "| rank | factor | hypothesis | run | IS | OOS | holdout | decision | figure |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for item in index_rows:
         lines.append(
-            f"| {item['rank']} | `{item['run_id']}` | `{str(item['expression'])[:80]}` | "
+            f"| {item['rank']} | `{item.get('label') or '-'}` | "
+            f"{_md_escape(str(item.get('hypothesis') or ''))[:70]} | `{item['run_id']}` | "
             f"{_fmt(item.get('sharpe_is'))} | {_fmt(item.get('sharpe_oos'))} | "
             f"{_fmt(item.get('sharpe_holdout'))} | {item.get('decision') or '-'} | "
             f"`{item['figure']}` |"
         )
     return lines
+
+
+def _md_escape(text: str) -> str:
+    return text.replace("|", "\\|")
 
 
 def publish_run(

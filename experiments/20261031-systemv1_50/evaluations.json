@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-10-31T14:11:23.681020+00:00",
+  "updated_at": "2026-11-01T02:17:04.917763+00:00",
   "n_records": 56,
   "records": [
     {
@@ -166,13 +166,16 @@
             "ic_positive_ratio": 0.5135176888614243
           }
         },
-        "figure": "runs/sysv1-h1/display/expr_9b07a46f7575e2c57129/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_9b07a46f7575e2c57129\\stability",
+        "figure": "display/expr_9b07a46f7575e2c57129/pnl.png",
+        "stability_dir": "runs/sysv1-h1/display/expr_9b07a46f7575e2c57129/stability",
+        "label": "H02-F01",
+        "slug": "volatility-volatility-instability-recent",
+        "hypothesis": "Volatility-of-volatility instability: recent volatility expanding relative to its long-run level predicts lower forward returns",
         "oos_sharpe": 0.09989677376127272,
         "holdout_sharpe": -0.7839661566909973
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.589419+00:00",
+      "updated_at": "2026-11-01T02:17:04.844467+00:00",
       "run_id": "sysv1-h1"
     },
     {
@@ -339,13 +342,16 @@
             "ic_positive_ratio": 0.5349194167306216
           }
         },
-        "figure": "runs/sysv1-h1/display/expr_9b6abf9b3e15fe039127/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_9b6abf9b3e15fe039127\\stability",
+        "figure": "display/expr_9b6abf9b3e15fe039127/pnl.png",
+        "stability_dir": "runs/sysv1-h1/display/expr_9b6abf9b3e15fe039127/stability",
+        "label": "H04-F01",
+        "slug": "cross-sectional-intermediate-horizon",
+        "hypothesis": "Cross-sectional intermediate-horizon momentum residualized against market beta (40-name panel)",
         "oos_sharpe": 0.0218994237630236,
         "holdout_sharpe": 0.4510596682504575
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.589419+00:00",
+      "updated_at": "2026-11-01T02:17:04.844467+00:00",
       "run_id": "sysv1-h1"
     },
     {
@@ -509,13 +515,16 @@
             "ic_positive_ratio": 0.5206981773246834
           }
         },
-        "figure": "runs/sysv1-h1/display/expr_6b5ef147a9734bed5ea4/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_6b5ef147a9734bed5ea4\\stability",
+        "figure": "display/expr_6b5ef147a9734bed5ea4/pnl.png",
+        "stability_dir": "runs/sysv1-h1/display/expr_6b5ef147a9734bed5ea4/stability",
+        "label": "H08-F01",
+        "slug": "position-within-trailing-yearly",
+        "hypothesis": "Position within trailing yearly range: proximity to the 52-week extreme predicts forward returns",
         "oos_sharpe": -0.14641374439870464,
         "holdout_sharpe": 0.05850022271056209
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.589419+00:00",
+      "updated_at": "2026-11-01T02:17:04.844467+00:00",
       "run_id": "sysv1-h1"
     },
     {
@@ -681,13 +690,16 @@
             "ic_positive_ratio": 0.49714800360252176
           }
         },
-        "figure": "runs/sysv1-h1/display/expr_6943ba46c8ed4bc54853/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_6943ba46c8ed4bc54853\\stability",
+        "figure": "display/expr_6943ba46c8ed4bc54853/pnl.png",
+        "stability_dir": "runs/sysv1-h1/display/expr_6943ba46c8ed4bc54853/stability",
+        "label": "H01-F01",
+        "slug": "short-horizon-volume-shock",
+        "hypothesis": "Short-horizon volume-shock reversal: abnormal turnover after an up move predicts lower forward returns",
         "oos_sharpe": -0.15971950909927873,
         "holdout_sharpe": 0.31787235512504486
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.589419+00:00",
+      "updated_at": "2026-11-01T02:17:04.844467+00:00",
       "run_id": "sysv1-h1"
     },
     {
@@ -855,13 +867,16 @@
             "ic_positive_ratio": 0.5125281320330083
           }
         },
-        "figure": "runs/sysv1-h1/display/expr_ccfc3239d95022ef946c/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_ccfc3239d95022ef946c\\stability",
+        "figure": "display/expr_ccfc3239d95022ef946c/pnl.png",
+        "stability_dir": "runs/sysv1-h1/display/expr_ccfc3239d95022ef946c/stability",
+        "label": "H03-F01",
+        "slug": "overnight-intraday-return-decomposition",
+        "hypothesis": "Overnight-versus-intraday return decomposition: persistent overnight drift predicts forward returns",
         "oos_sharpe": -0.40488571845719146,
         "holdout_sharpe": 0.24658218580988087
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.589419+00:00",
+      "updated_at": "2026-11-01T02:17:04.844467+00:00",
       "run_id": "sysv1-h1"
     },
     {
@@ -1027,13 +1042,16 @@
             "ic_positive_ratio": 0.5084243369734789
           }
         },
-        "figure": "runs/sysv1-h1/display/expr_c470c52d49f3015f0950/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_c470c52d49f3015f0950\\stability",
+        "figure": "display/expr_c470c52d49f3015f0950/pnl.png",
+        "stability_dir": "runs/sysv1-h1/display/expr_c470c52d49f3015f0950/stability",
+        "label": "H07-F01",
+        "slug": "rising-conditional-market-beta",
+        "hypothesis": "Rising conditional market beta predicts weaker forward returns (beta-instability hypothesis)",
         "oos_sharpe": 0.2580597256305015,
         "holdout_sharpe": -1.0828214696423712
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.589419+00:00",
+      "updated_at": "2026-11-01T02:17:04.844467+00:00",
       "run_id": "sysv1-h1"
     },
     {
@@ -1197,13 +1215,16 @@
             "ic_positive_ratio": 0.5062064789585226
           }
         },
-        "figure": "runs/sysv1-h1/display/expr_a76eec433ad1789b55c5/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h1\\display\\expr_a76eec433ad1789b55c5\\stability",
+        "figure": "display/expr_a76eec433ad1789b55c5/pnl.png",
+        "stability_dir": "runs/sysv1-h1/display/expr_a76eec433ad1789b55c5/stability",
+        "label": "H05-F01",
+        "slug": "intraday-range-stress-self",
+        "hypothesis": "Index intraday-range stress: a self-normalized high-low range expansion predicts weaker forward index returns",
         "oos_sharpe": 0.05391496523390151,
         "holdout_sharpe": -0.11568034170521818
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.589419+00:00",
+      "updated_at": "2026-11-01T02:17:04.844467+00:00",
       "run_id": "sysv1-h1"
     },
     {
@@ -1367,13 +1388,16 @@
             "ic_positive_ratio": 0.5299285288862418
           }
         },
-        "figure": "runs/sysv1-h2/display/expr_6a671f42de025b70689d/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_6a671f42de025b70689d\\stability",
+        "figure": "display/expr_6a671f42de025b70689d/pnl.png",
+        "stability_dir": "runs/sysv1-h2/display/expr_6a671f42de025b70689d/stability",
+        "label": "H01-F01",
+        "slug": "",
+        "hypothesis": "日内收盘位置与短期反转：日收益分布在当日高低区间中的位置对后续1周收益的预测",
         "oos_sharpe": 0.1213556961048716,
         "holdout_sharpe": -0.44952667072439617
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.598396+00:00",
+      "updated_at": "2026-11-01T02:17:04.849504+00:00",
       "run_id": "sysv1-h2"
     },
     {
@@ -1537,13 +1561,16 @@
             "ic_positive_ratio": 0.5061506150615062
           }
         },
-        "figure": "runs/sysv1-h2/display/expr_f87caff1de493ffc602c/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f87caff1de493ffc602c\\stability",
+        "figure": "display/expr_f87caff1de493ffc602c/pnl.png",
+        "stability_dir": "runs/sysv1-h2/display/expr_f87caff1de493ffc602c/stability",
+        "label": "H02-F01",
+        "slug": "",
+        "hypothesis": "成交量异常放大后的价格延续：相对历史均量的量能冲击对短期收益的预测",
         "oos_sharpe": 0.17646521038823182,
         "holdout_sharpe": 0.8888713464317446
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.598396+00:00",
+      "updated_at": "2026-11-01T02:17:04.849504+00:00",
       "run_id": "sysv1-h2"
     },
     {
@@ -1706,13 +1733,16 @@
             "ic_positive_ratio": 0.5082557790453317
           }
         },
-        "figure": "runs/sysv1-h2/display/expr_f6bd6ac368dcb80dc177/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f6bd6ac368dcb80dc177\\stability",
+        "figure": "display/expr_f6bd6ac368dcb80dc177/pnl.png",
+        "stability_dir": "runs/sysv1-h2/display/expr_f6bd6ac368dcb80dc177/stability",
+        "label": "H03-F01",
+        "slug": "",
+        "hypothesis": "低波动偏好：已实现波动率水平对横截面中期收益的预测",
         "oos_sharpe": -0.07666144237677863,
         "holdout_sharpe": -1.373308989996752
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.598396+00:00",
+      "updated_at": "2026-11-01T02:17:04.849504+00:00",
       "run_id": "sysv1-h2"
     },
     {
@@ -1878,13 +1908,16 @@
             "ic_positive_ratio": 0.5138531415594246
           }
         },
-        "figure": "runs/sysv1-h2/display/expr_4bfdd583a6727a39692e/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_4bfdd583a6727a39692e\\stability",
+        "figure": "display/expr_4bfdd583a6727a39692e/pnl.png",
+        "stability_dir": "runs/sysv1-h2/display/expr_4bfdd583a6727a39692e/stability",
+        "label": "H04-F01",
+        "slug": "",
+        "hypothesis": "波动率扩张与收缩：短期/长期波动率比值对后续收益的预测（波动率状态变化）",
         "oos_sharpe": 0.47383487939599206,
         "holdout_sharpe": -1.1278872209827342
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.598396+00:00",
+      "updated_at": "2026-11-01T02:17:04.849504+00:00",
       "run_id": "sysv1-h2"
     },
     {
@@ -2046,13 +2079,16 @@
             "ic_positive_ratio": 0.512797619047619
           }
         },
-        "figure": "runs/sysv1-h2/display/expr_f5c60a97a91af5c36dcd/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_f5c60a97a91af5c36dcd\\stability",
+        "figure": "display/expr_f5c60a97a91af5c36dcd/pnl.png",
+        "stability_dir": "runs/sysv1-h2/display/expr_f5c60a97a91af5c36dcd/stability",
+        "label": "H05-F01",
+        "slug": "",
+        "hypothesis": "跳空缺口回补：开盘相对前日收盘的跳空幅度对后续收益的预测",
         "oos_sharpe": 0.7533394608482259,
         "holdout_sharpe": 1.0652601667015833
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.598396+00:00",
+      "updated_at": "2026-11-01T02:17:04.849504+00:00",
       "run_id": "sysv1-h2"
     },
     {
@@ -2217,13 +2253,16 @@
             "ic_positive_ratio": 0.5104558447419889
           }
         },
-        "figure": "runs/sysv1-h2/display/expr_b478e3cb13da9301622e/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_b478e3cb13da9301622e\\stability",
+        "figure": "display/expr_b478e3cb13da9301622e/pnl.png",
+        "stability_dir": "runs/sysv1-h2/display/expr_b478e3cb13da9301622e/stability",
+        "label": "H06-F01",
+        "slug": "",
+        "hypothesis": "量价配合度：收益与成交量方向的日内一致性与后续收益的反转关系",
         "oos_sharpe": 0.4201704438489914,
         "holdout_sharpe": -0.007583216540387324
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.598396+00:00",
+      "updated_at": "2026-11-01T02:17:04.849504+00:00",
       "run_id": "sysv1-h2"
     },
     {
@@ -2384,13 +2423,16 @@
             "ic_positive_ratio": 0.48001816530426883
           }
         },
-        "figure": "runs/sysv1-h2/display/expr_410d59033c0867683025/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h2\\display\\expr_410d59033c0867683025\\stability",
+        "figure": "display/expr_410d59033c0867683025/pnl.png",
+        "stability_dir": "runs/sysv1-h2/display/expr_410d59033c0867683025/stability",
+        "label": "H08-F01",
+        "slug": "",
+        "hypothesis": "中期趋势偏离：价格相对长期均线的偏离程度对后续2-4周收益的预测",
         "oos_sharpe": 0.2118726128304241,
         "holdout_sharpe": 0.1418426297959531
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.598396+00:00",
+      "updated_at": "2026-11-01T02:17:04.849504+00:00",
       "run_id": "sysv1-h2"
     },
     {
@@ -2553,13 +2595,16 @@
             "ic_positive_ratio": 0.5073551486040229
           }
         },
-        "figure": "runs/sysv1-h3/display/expr_cbc21111d42561e2045a/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_cbc21111d42561e2045a\\stability",
+        "figure": "display/expr_cbc21111d42561e2045a/pnl.png",
+        "stability_dir": "runs/sysv1-h3/display/expr_cbc21111d42561e2045a/stability",
+        "label": "H01-F01",
+        "slug": "",
+        "hypothesis": "S&P 500 指数 ETF 中期时间序列动量的波动率调整趋势信号",
         "oos_sharpe": -0.39087025501516964,
         "holdout_sharpe": -0.2213788478206872
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.607968+00:00",
+      "updated_at": "2026-11-01T02:17:04.856509+00:00",
       "run_id": "sysv1-h3"
     },
     {
@@ -2725,13 +2770,16 @@
             "ic_positive_ratio": 0.4859437751004016
           }
         },
-        "figure": "runs/sysv1-h3/display/expr_42f5cb12a5da4d29fa22/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_42f5cb12a5da4d29fa22\\stability",
+        "figure": "display/expr_42f5cb12a5da4d29fa22/pnl.png",
+        "stability_dir": "runs/sysv1-h3/display/expr_42f5cb12a5da4d29fa22/stability",
+        "label": "H02-F01",
+        "slug": "",
+        "hypothesis": "指数 ETF 成交量的相对活跃度与价格确认",
         "oos_sharpe": 0.030688683602479044,
         "holdout_sharpe": -0.2866210104226251
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.607968+00:00",
+      "updated_at": "2026-11-01T02:17:04.856509+00:00",
       "run_id": "sysv1-h3"
     },
     {
@@ -2895,13 +2943,16 @@
             "ic_positive_ratio": 0.48344272076372313
           }
         },
-        "figure": "runs/sysv1-h3/display/expr_115e379fae3fb683da1e/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_115e379fae3fb683da1e\\stability",
+        "figure": "display/expr_115e379fae3fb683da1e/pnl.png",
+        "stability_dir": "runs/sysv1-h3/display/expr_115e379fae3fb683da1e/stability",
+        "label": "H03-F01",
+        "slug": "",
+        "hypothesis": "指数 ETF 日收益方向强度：均值与波动率之比的持续性",
         "oos_sharpe": -0.25129467746771766,
         "holdout_sharpe": -0.5753057086555733
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.607968+00:00",
+      "updated_at": "2026-11-01T02:17:04.857502+00:00",
       "run_id": "sysv1-h3"
     },
     {
@@ -3068,13 +3119,16 @@
             "ic_positive_ratio": 0.530851223540009
           }
         },
-        "figure": "runs/sysv1-h3/display/expr_4d8ea71894c66541978e/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_4d8ea71894c66541978e\\stability",
+        "figure": "display/expr_4d8ea71894c66541978e/pnl.png",
+        "stability_dir": "runs/sysv1-h3/display/expr_4d8ea71894c66541978e/stability",
+        "label": "H04-F01",
+        "slug": "",
+        "hypothesis": "指数 ETF 短期超卖反转：极端收益的均值回归",
         "oos_sharpe": -0.1122906505939538,
         "holdout_sharpe": 0.4345289123555229
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.607968+00:00",
+      "updated_at": "2026-11-01T02:17:04.857502+00:00",
       "run_id": "sysv1-h3"
     },
     {
@@ -3238,13 +3292,16 @@
             "ic_positive_ratio": 0.5366079703429101
           }
         },
-        "figure": "runs/sysv1-h3/display/expr_dcdbc4d75226922545ca/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_dcdbc4d75226922545ca\\stability",
+        "figure": "display/expr_dcdbc4d75226922545ca/pnl.png",
+        "stability_dir": "runs/sysv1-h3/display/expr_dcdbc4d75226922545ca/stability",
+        "label": "H05-F01",
+        "slug": "",
+        "hypothesis": "指数 ETF 在长区间中的布林带位置与突破持续性",
         "oos_sharpe": 0.05583065951466538,
         "holdout_sharpe": 0.45195502460501474
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.607968+00:00",
+      "updated_at": "2026-11-01T02:17:04.857502+00:00",
       "run_id": "sysv1-h3"
     },
     {
@@ -3256,8 +3313,9 @@
       "status": "rejected_before_backtest",
       "expression": "-1 * ts_zscore(safe_div(DlyPrcVol, volume), 252)",
       "error": "unknown field 'DlyPrcVol'; available fields: adv20, amount, cap, cap_rank, close, close_position, high, intraday_return, log_returns, low, open, overnight_return, range, returns, volume",
+      "display": {},
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.607968+00:00",
+      "updated_at": "2026-11-01T02:17:04.857502+00:00",
       "run_id": "sysv1-h3"
     },
     {
@@ -3419,13 +3477,16 @@
             "ic_positive_ratio": 0.48971070682970474
           }
         },
-        "figure": "runs/sysv1-h3/display/expr_d5bba96407c967f93e8c/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h3\\display\\expr_d5bba96407c967f93e8c\\stability",
+        "figure": "display/expr_d5bba96407c967f93e8c/pnl.png",
+        "stability_dir": "runs/sysv1-h3/display/expr_d5bba96407c967f93e8c/stability",
+        "label": "H08-F01",
+        "slug": "",
+        "hypothesis": "个股日内收盘位置作为订单流压力代理",
         "oos_sharpe": -0.25234718895607555,
         "holdout_sharpe": 0.260950370595028
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.607968+00:00",
+      "updated_at": "2026-11-01T02:17:04.857502+00:00",
       "run_id": "sysv1-h3"
     },
     {
@@ -3585,17 +3646,20 @@
             "ic_positive_ratio": 0.48381804623415364
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_30c3b38734c5c617edb3/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_30c3b38734c5c617edb3\\stability",
+        "figure": "display/expr_30c3b38734c5c617edb3/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_30c3b38734c5c617edb3/stability",
+        "label": "H06-F01",
+        "slug": "",
+        "hypothesis": "规模溢价：横截面中市值相对较低的股票在未来1个月相对跑赢",
         "oos_sharpe": -0.387986644961721,
         "holdout_sharpe": -0.6319684521886001
       },
       "revision": 2,
-      "updated_at": "2026-10-31T14:11:23.620386+00:00",
+      "updated_at": "2026-11-01T02:17:04.867386+00:00",
       "run_id": "sysv1-h4",
       "_dataset_id": "ds_86999418bce1",
       "_family": "size_premium",
-      "created_at": "2026-10-31T14:11:23.598396+00:00"
+      "created_at": "2026-11-01T02:17:04.849504+00:00"
     },
     {
       "round": 0,
@@ -3760,13 +3824,16 @@
             "ic_positive_ratio": 0.5408068986757006
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_d43a43e4d20d5f093930/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_d43a43e4d20d5f093930\\stability",
+        "figure": "display/expr_d43a43e4d20d5f093930/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_d43a43e4d20d5f093930/stability",
+        "label": "H01-F01",
+        "slug": "",
+        "hypothesis": "中期价格动量的延续：6-12个月累计收益排名靠前的股票在未来1个月继续跑赢",
         "oos_sharpe": 0.17580123689088087,
         "holdout_sharpe": 1.0460812051150155
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.620386+00:00",
+      "updated_at": "2026-11-01T02:17:04.867386+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -3934,13 +4001,16 @@
             "ic_positive_ratio": 0.5266369047619047
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_8475b17af7e41c426202/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_8475b17af7e41c426202\\stability",
+        "figure": "display/expr_8475b17af7e41c426202/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_8475b17af7e41c426202/stability",
+        "label": "H02-F01",
+        "slug": "",
+        "hypothesis": "短期收益反转：最近 5 日涨幅最高的股票在未来 2-10 个交易日跑输",
         "oos_sharpe": 0.1877555283944521,
         "holdout_sharpe": 0.5438590697643576
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.620386+00:00",
+      "updated_at": "2026-11-01T02:17:04.867386+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -4105,13 +4175,16 @@
             "ic_positive_ratio": 0.5082557790453317
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_f6bd6ac368dcb80dc177/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_f6bd6ac368dcb80dc177\\stability",
+        "figure": "display/expr_f6bd6ac368dcb80dc177/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_f6bd6ac368dcb80dc177/stability",
+        "label": "H03-F01",
+        "slug": "",
+        "hypothesis": "低波动异象：已实现波动率高的股票在未来1个月相对跑输",
         "oos_sharpe": -0.07666144237677863,
         "holdout_sharpe": -1.373308989996752
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.620386+00:00",
+      "updated_at": "2026-11-01T02:17:04.867386+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -4278,13 +4351,16 @@
             "ic_positive_ratio": 0.4895692630947021
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_c2d03944c028fcedfda4/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_c2d03944c028fcedfda4\\stability",
+        "figure": "display/expr_c2d03944c028fcedfda4/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_c2d03944c028fcedfda4/stability",
+        "label": "H04-F01",
+        "slug": "",
+        "hypothesis": "异常放量后的回吐：近端成交量显著高于自身基准的股票在未来两周相对跑输",
         "oos_sharpe": 0.2081759584089211,
         "holdout_sharpe": -0.8777312792007209
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.620386+00:00",
+      "updated_at": "2026-11-01T02:17:04.867386+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -4451,13 +4527,16 @@
             "ic_positive_ratio": 0.5000750412727
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_6e18647dda1cdef6db8c/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_6e18647dda1cdef6db8c\\stability",
+        "figure": "display/expr_6e18647dda1cdef6db8c/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_6e18647dda1cdef6db8c/stability",
+        "label": "H05-F01",
+        "slug": "",
+        "hypothesis": "区间位置惯性：收盘价接近近月高低区间上沿的股票在未来两周相对跑赢",
         "oos_sharpe": -0.2943904077717791,
         "holdout_sharpe": -0.23639281013107277
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.620386+00:00",
+      "updated_at": "2026-11-01T02:17:04.867386+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -4624,13 +4703,16 @@
             "ic_positive_ratio": 0.4771778042959427
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_d7c6d1eb2aced211c446/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_d7c6d1eb2aced211c446\\stability",
+        "figure": "display/expr_d7c6d1eb2aced211c446/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_d7c6d1eb2aced211c446/stability",
+        "label": "H07-F01",
+        "slug": "",
+        "hypothesis": "指数短期均值回复：SPY 近5日急跌后未来一周偏向反弹（作为横截面策略的条件变量）",
         "oos_sharpe": -0.07276559986639751,
         "holdout_sharpe": -0.5679737083271111
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.621386+00:00",
+      "updated_at": "2026-11-01T02:17:04.867386+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -4797,13 +4879,16 @@
             "ic_positive_ratio": 0.504877682725499
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_e9258c745a801e6e3454/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_e9258c745a801e6e3454\\stability",
+        "figure": "display/expr_e9258c745a801e6e3454/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_e9258c745a801e6e3454/stability",
+        "label": "H08-F01",
+        "slug": "",
+        "hypothesis": "市场波动状态条件：SPY 日内区间宽度相对历史抬升时未来一月预期收益偏低",
         "oos_sharpe": 0.04190165485532625,
         "holdout_sharpe": 0.4545296618790643
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.621386+00:00",
+      "updated_at": "2026-11-01T02:17:04.867386+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -4972,13 +5057,16 @@
             "ic_positive_ratio": 0.5064545181627139
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_68157494310c82e7a0f9/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_68157494310c82e7a0f9\\stability",
+        "figure": "display/expr_68157494310c82e7a0f9/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_68157494310c82e7a0f9/stability",
+        "label": "H09-F01",
+        "slug": "",
+        "hypothesis": "彩票型偏好：近期出现大幅单日上涨（右尾收益）的股票在未来1个月相对跑输",
         "oos_sharpe": 0.2053992011184965,
         "holdout_sharpe": -0.4987448281693904
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.621386+00:00",
+      "updated_at": "2026-11-01T02:17:04.868368+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -5145,13 +5233,16 @@
             "ic_positive_ratio": 0.509980489269098
           }
         },
-        "figure": "runs/sysv1-h4/display/expr_cdee0c858b6bd822f12f/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h4\\display\\expr_cdee0c858b6bd822f12f\\stability",
+        "figure": "display/expr_cdee0c858b6bd822f12f/pnl.png",
+        "stability_dir": "runs/sysv1-h4/display/expr_cdee0c858b6bd822f12f/stability",
+        "label": "H10-F01",
+        "slug": "",
+        "hypothesis": "高换手率折价：换手率相对自身历史抬升的股票在未来1个月相对跑输",
         "oos_sharpe": -0.15759007642044423,
         "holdout_sharpe": 0.44573109456430415
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.621386+00:00",
+      "updated_at": "2026-11-01T02:17:04.868368+00:00",
       "run_id": "sysv1-h4"
     },
     {
@@ -5319,13 +5410,16 @@
             "ic_positive_ratio": 0.5253595760787282
           }
         },
-        "figure": "runs/sysv1-h5/display/expr_2e29b94d54f782fb65ea/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_2e29b94d54f782fb65ea\\stability",
+        "figure": "display/expr_2e29b94d54f782fb65ea/pnl.png",
+        "stability_dir": "runs/sysv1-h5/display/expr_2e29b94d54f782fb65ea/stability",
+        "label": "H02-F01",
+        "slug": "variance-ratio-style-trend",
+        "hypothesis": "Variance-ratio style trend persistence: medium-horizon return spread relative to short-horizon noise",
         "oos_sharpe": -0.05972271304231881,
         "holdout_sharpe": 0.0047453017909002675
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
       "run_id": "sysv1-h5"
     },
     {
@@ -5491,13 +5585,16 @@
             "ic_positive_ratio": 0.5488441461595824
           }
         },
-        "figure": "runs/sysv1-h5/display/expr_55c783b87cd7eaf458ce/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_55c783b87cd7eaf458ce\\stability",
+        "figure": "display/expr_55c783b87cd7eaf458ce/pnl.png",
+        "stability_dir": "runs/sysv1-h5/display/expr_55c783b87cd7eaf458ce/stability",
+        "label": "H03-F01",
+        "slug": "short-horizon-overreaction-reversal",
+        "hypothesis": "Short-horizon overreaction reversal after standardized single-day shocks",
         "oos_sharpe": 0.7882648182522416,
         "holdout_sharpe": 0.22510130352136345
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
       "run_id": "sysv1-h5"
     },
     {
@@ -5666,13 +5763,16 @@
             "ic_positive_ratio": 0.4871281023585633
           }
         },
-        "figure": "runs/sysv1-h5/display/expr_1a53c6ab68b85973387e/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_1a53c6ab68b85973387e\\stability",
+        "figure": "display/expr_1a53c6ab68b85973387e/pnl.png",
+        "stability_dir": "runs/sysv1-h5/display/expr_1a53c6ab68b85973387e/stability",
+        "label": "H06-F01",
+        "slug": "volatility-compression-expansion-continuation",
+        "hypothesis": "Index volatility-compression then expansion continuation",
         "oos_sharpe": -0.10557778165141199,
         "holdout_sharpe": -0.035863397846281404
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
       "run_id": "sysv1-h5"
     },
     {
@@ -5838,13 +5938,16 @@
             "ic_positive_ratio": 0.5153788447111778
           }
         },
-        "figure": "runs/sysv1-h5/display/expr_a836016830183e68d257/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_a836016830183e68d257\\stability",
+        "figure": "display/expr_a836016830183e68d257/pnl.png",
+        "stability_dir": "runs/sysv1-h5/display/expr_a836016830183e68d257/stability",
+        "label": "H12-F01",
+        "slug": "volume-valuation-expansion-signals",
+        "hypothesis": "Volume-driven valuation expansion signals subsequent index underperformance",
         "oos_sharpe": 1.0910702403591388,
         "holdout_sharpe": 0.0020121810312237263
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
       "run_id": "sysv1-h5"
     },
     {
@@ -6011,13 +6114,16 @@
             "ic_positive_ratio": 0.509459663992735
           }
         },
-        "figure": "runs/sysv1-h5/display/expr_369d56a6bd0f915fc65a/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_369d56a6bd0f915fc65a\\stability",
+        "figure": "display/expr_369d56a6bd0f915fc65a/pnl.png",
+        "stability_dir": "runs/sysv1-h5/display/expr_369d56a6bd0f915fc65a/stability",
+        "label": "H04-F01",
+        "slug": "abnormal-volume-days-trend",
+        "hypothesis": "Abnormal-volume-days trend confirmation: return accumulated on volume-surge days",
         "oos_sharpe": -0.41463387841733695,
         "holdout_sharpe": -0.18396617260656015
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
       "run_id": "sysv1-h5"
     },
     {
@@ -6032,8 +6138,9 @@
       "_dataset_id": "ds_bd2eab70d3b9",
       "_family": "market_regime_timing",
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
-      "run_id": "sysv1-h5"
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
+      "run_id": "sysv1-h5",
+      "display": {}
     },
     {
       "round": 0,
@@ -6047,8 +6154,9 @@
       "_dataset_id": "ds_bd2eab70d3b9",
       "_family": "return_dispersion",
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
-      "run_id": "sysv1-h5"
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
+      "run_id": "sysv1-h5",
+      "display": {}
     },
     {
       "round": 0,
@@ -6215,13 +6323,16 @@
             "ic_positive_ratio": 0.48841034843726633
           }
         },
-        "figure": "runs/sysv1-h5/display/expr_4c37e7ff29ea3f8188b6/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_4c37e7ff29ea3f8188b6\\stability",
+        "figure": "display/expr_4c37e7ff29ea3f8188b6/pnl.png",
+        "stability_dir": "runs/sysv1-h5/display/expr_4c37e7ff29ea3f8188b6/stability",
+        "label": "H07-F01",
+        "slug": "volume-concentrated-days-continued",
+        "hypothesis": "Volume-concentrated up-days predict continued index gains",
         "oos_sharpe": -0.30697060189886494,
         "holdout_sharpe": -0.25308641405471366
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
       "run_id": "sysv1-h5"
     },
     {
@@ -6236,8 +6347,9 @@
       "_dataset_id": "ds_bd2eab70d3b9",
       "_family": "liquidity_stress",
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
-      "run_id": "sysv1-h5"
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
+      "run_id": "sysv1-h5",
+      "display": {}
     },
     {
       "round": 0,
@@ -6251,8 +6363,9 @@
       "_dataset_id": "ds_bd2eab70d3b9",
       "_family": "attention_turnover",
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
-      "run_id": "sysv1-h5"
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
+      "run_id": "sysv1-h5",
+      "display": {}
     },
     {
       "round": 0,
@@ -6419,13 +6532,16 @@
             "ic_positive_ratio": 0.5158479795703771
           }
         },
-        "figure": "runs/sysv1-h5/display/expr_d3d50140cb4a529fa262/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h5\\display\\expr_d3d50140cb4a529fa262\\stability",
+        "figure": "display/expr_d3d50140cb4a529fa262/pnl.png",
+        "stability_dir": "runs/sysv1-h5/display/expr_d3d50140cb4a529fa262/stability",
+        "label": "H11-F01",
+        "slug": "high-low-range-expansion",
+        "hypothesis": "Index high-low range expansion asymmetry as directional exhaustion",
         "oos_sharpe": -0.3391030923370293,
         "holdout_sharpe": 0.21411264985599066
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.636830+00:00",
+      "updated_at": "2026-11-01T02:17:04.881744+00:00",
       "run_id": "sysv1-h5"
     },
     {
@@ -6590,13 +6706,16 @@
             "ic_positive_ratio": 0.539233858510967
           }
         },
-        "figure": "runs/sysv1-h6/display/expr_f5b3118c93d772f933de/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_f5b3118c93d772f933de\\stability",
+        "figure": "display/expr_f5b3118c93d772f933de/pnl.png",
+        "stability_dir": "runs/sysv1-h6/display/expr_f5b3118c93d772f933de/stability",
+        "label": "H01-F01",
+        "slug": "",
+        "hypothesis": "12-1 月动量：剔除最近一个月收益后的中期累计回报横截面排序",
         "oos_sharpe": 0.017132477283241583,
         "holdout_sharpe": 0.8047871739863781
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.657874+00:00",
+      "updated_at": "2026-11-01T02:17:04.897741+00:00",
       "run_id": "sysv1-h6"
     },
     {
@@ -6762,13 +6881,16 @@
             "ic_positive_ratio": 0.4824402058734484
           }
         },
-        "figure": "runs/sysv1-h6/display/expr_940b316d43e862b70b3b/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_940b316d43e862b70b3b\\stability",
+        "figure": "display/expr_940b316d43e862b70b3b/pnl.png",
+        "stability_dir": "runs/sysv1-h6/display/expr_940b316d43e862b70b3b/stability",
+        "label": "H02-F01",
+        "slug": "",
+        "hypothesis": "成交量相对强度：价格趋势中“放量上涨”相对“缩量上涨”的差异",
         "oos_sharpe": -0.13676365887113087,
         "holdout_sharpe": -0.09256154417203269
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.657874+00:00",
+      "updated_at": "2026-11-01T02:17:04.897741+00:00",
       "run_id": "sysv1-h6"
     },
     {
@@ -6934,13 +7056,16 @@
             "ic_positive_ratio": 0.48471086890705417
           }
         },
-        "figure": "runs/sysv1-h6/display/expr_52a91987ac50381c7a12/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_52a91987ac50381c7a12\\stability",
+        "figure": "display/expr_52a91987ac50381c7a12/pnl.png",
+        "stability_dir": "runs/sysv1-h6/display/expr_52a91987ac50381c7a12/stability",
+        "label": "H03-F01",
+        "slug": "",
+        "hypothesis": "区间位置反转：位于 120 日高低区间上沿的股票短期回吐",
         "oos_sharpe": 0.1910312847319428,
         "holdout_sharpe": 0.3159944492048784
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.657874+00:00",
+      "updated_at": "2026-11-01T02:17:04.897741+00:00",
       "run_id": "sysv1-h6"
     },
     {
@@ -7107,13 +7232,16 @@
             "ic_positive_ratio": 0.5204545454545455
           }
         },
-        "figure": "runs/sysv1-h6/display/expr_ab9f6e3170d776843bf3/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_ab9f6e3170d776843bf3\\stability",
+        "figure": "display/expr_ab9f6e3170d776843bf3/pnl.png",
+        "stability_dir": "runs/sysv1-h6/display/expr_ab9f6e3170d776843bf3/stability",
+        "label": "H04-F01",
+        "slug": "",
+        "hypothesis": "相对换手热度的时间序列异常：成交额占市值比显著高于自身常态的股票随后走弱",
         "oos_sharpe": -0.008501641577732274,
         "holdout_sharpe": 0.210391244209624
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.657874+00:00",
+      "updated_at": "2026-11-01T02:17:04.897741+00:00",
       "run_id": "sysv1-h6"
     },
     {
@@ -7278,13 +7406,16 @@
             "ic_positive_ratio": 0.5093111279333838
           }
         },
-        "figure": "runs/sysv1-h6/display/expr_f2b5b5b6cf340cdb9f26/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_f2b5b5b6cf340cdb9f26\\stability",
+        "figure": "display/expr_f2b5b5b6cf340cdb9f26/pnl.png",
+        "stability_dir": "runs/sysv1-h6/display/expr_f2b5b5b6cf340cdb9f26/stability",
+        "label": "H05-F01",
+        "slug": "",
+        "hypothesis": "低波动率异象：高日收益波动率的股票随后收益落后",
         "oos_sharpe": -0.25711906862727263,
         "holdout_sharpe": -1.3394326167635697
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.657874+00:00",
+      "updated_at": "2026-11-01T02:17:04.897741+00:00",
       "run_id": "sysv1-h6"
     },
     {
@@ -7454,13 +7585,16 @@
             "ic_positive_ratio": 0.525952595259526
           }
         },
-        "figure": "runs/sysv1-h6/display/expr_248190f11442ff473b45/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_248190f11442ff473b45\\stability",
+        "figure": "display/expr_248190f11442ff473b45/pnl.png",
+        "stability_dir": "runs/sysv1-h6/display/expr_248190f11442ff473b45/stability",
+        "label": "H06-F01",
+        "slug": "",
+        "hypothesis": "放量急跌后的流动性冲击回补：高冲击强度股票短期反弹",
         "oos_sharpe": 0.07690156302245549,
         "holdout_sharpe": 0.43675817394756133
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.657874+00:00",
+      "updated_at": "2026-11-01T02:17:04.897741+00:00",
       "run_id": "sysv1-h6"
     },
     {
@@ -7625,13 +7759,16 @@
             "ic_positive_ratio": 0.5292675452038001
           }
         },
-        "figure": "runs/sysv1-h6/display/expr_c53716fbad03a5eb1d61/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_c53716fbad03a5eb1d61\\stability",
+        "figure": "display/expr_c53716fbad03a5eb1d61/pnl.png",
+        "stability_dir": "runs/sysv1-h6/display/expr_c53716fbad03a5eb1d61/stability",
+        "label": "H07-F01",
+        "slug": "",
+        "hypothesis": "指数长期均线状态：SPY 相对 200 日均线的偏离度对随后指数的方向性预示",
         "oos_sharpe": -0.1759296624886266,
         "holdout_sharpe": 0.4814574236980164
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.657874+00:00",
+      "updated_at": "2026-11-01T02:17:04.897741+00:00",
       "run_id": "sysv1-h6"
     },
     {
@@ -7796,13 +7933,16 @@
             "ic_positive_ratio": 0.5156015601560155
           }
         },
-        "figure": "runs/sysv1-h6/display/expr_6396d68d928e483d12de/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h6\\display\\expr_6396d68d928e483d12de\\stability",
+        "figure": "display/expr_6396d68d928e483d12de/pnl.png",
+        "stability_dir": "runs/sysv1-h6/display/expr_6396d68d928e483d12de/stability",
+        "label": "H08-F01",
+        "slug": "",
+        "hypothesis": "指数短期波动率抬升：SPY 5 日已实现波动相对 60 日常态比率的短期负向预示",
         "oos_sharpe": 0.5526198605163395,
         "holdout_sharpe": -0.7620729265839518
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.658384+00:00",
+      "updated_at": "2026-11-01T02:17:04.897741+00:00",
       "run_id": "sysv1-h6"
     },
     {
@@ -7969,15 +8109,18 @@
             "ic_positive_ratio": 0.4993999399939994
           }
         },
-        "figure": "runs/sysv1-h7/display/expr_23dfe8f217f8bd01b635/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_23dfe8f217f8bd01b635\\stability",
+        "figure": "display/expr_23dfe8f217f8bd01b635/pnl.png",
+        "stability_dir": "runs/sysv1-h7/display/expr_23dfe8f217f8bd01b635/stability",
+        "label": "H03-F01",
+        "slug": "",
+        "hypothesis": "日内位置动量：收盘价在近期高低区间中的持续位置",
         "oos_sharpe": -0.25779790715723366,
         "holdout_sharpe": -0.2510646929524222
       },
       "revision": 2,
-      "updated_at": "2026-10-31T14:11:23.680501+00:00",
+      "updated_at": "2026-11-01T02:17:04.916742+00:00",
       "run_id": "sysv1-h7",
-      "created_at": "2026-10-31T14:11:23.636830+00:00"
+      "created_at": "2026-11-01T02:17:04.881744+00:00"
     },
     {
       "round": 0,
@@ -8140,13 +8283,16 @@
             "ic_positive_ratio": 0.50387712496272
           }
         },
-        "figure": "runs/sysv1-h7/display/expr_bcc57e8e6d27d5582104/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_bcc57e8e6d27d5582104\\stability",
+        "figure": "display/expr_bcc57e8e6d27d5582104/pnl.png",
+        "stability_dir": "runs/sysv1-h7/display/expr_bcc57e8e6d27d5582104/stability",
+        "label": "H02-F01",
+        "slug": "",
+        "hypothesis": "横截面换手率（成交额/市值）的流动性溢价",
         "oos_sharpe": 0.29125387028618843,
         "holdout_sharpe": -1.2432499742931082
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.680501+00:00",
+      "updated_at": "2026-11-01T02:17:04.916742+00:00",
       "run_id": "sysv1-h7"
     },
     {
@@ -8306,13 +8452,16 @@
             "ic_positive_ratio": 0.4882220555138785
           }
         },
-        "figure": "runs/sysv1-h7/display/expr_90005e9107ded6b5dc19/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_90005e9107ded6b5dc19\\stability",
+        "figure": "display/expr_90005e9107ded6b5dc19/pnl.png",
+        "stability_dir": "runs/sysv1-h7/display/expr_90005e9107ded6b5dc19/stability",
+        "label": "H06-F01",
+        "slug": "",
+        "hypothesis": "大盘股内部的规模倾斜：相对市值分位与季度收益",
         "oos_sharpe": 0.5690048289024177,
         "holdout_sharpe": 0.12009060971140605
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.680501+00:00",
+      "updated_at": "2026-11-01T02:17:04.916742+00:00",
       "run_id": "sysv1-h7"
     },
     {
@@ -8479,13 +8628,16 @@
             "ic_positive_ratio": 0.5264026402640264
           }
         },
-        "figure": "runs/sysv1-h7/display/expr_29f3976a7607441d7052/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_29f3976a7607441d7052\\stability",
+        "figure": "display/expr_29f3976a7607441d7052/pnl.png",
+        "stability_dir": "runs/sysv1-h7/display/expr_29f3976a7607441d7052/stability",
+        "label": "H01-F01",
+        "slug": "",
+        "hypothesis": "相对成交量的短期脉冲式均值回归（噪声交易者过度反应）",
         "oos_sharpe": 0.0776015120873854,
         "holdout_sharpe": 0.4417252930787906
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.680501+00:00",
+      "updated_at": "2026-11-01T02:17:04.916742+00:00",
       "run_id": "sysv1-h7"
     },
     {
@@ -8651,13 +8803,16 @@
             "ic_positive_ratio": 0.5052819520904628
           }
         },
-        "figure": "runs/sysv1-h7/display/expr_a294131603521e43f315/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_a294131603521e43f315\\stability",
+        "figure": "display/expr_a294131603521e43f315/pnl.png",
+        "stability_dir": "runs/sysv1-h7/display/expr_a294131603521e43f315/stability",
+        "label": "H05-F01",
+        "slug": "",
+        "hypothesis": "日内上影线优势：收盘相对高低中点的持续偏离作为短期需求压力信号",
         "oos_sharpe": 0.08556382825858787,
         "holdout_sharpe": -0.032892142011105706
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.680501+00:00",
+      "updated_at": "2026-11-01T02:17:04.917763+00:00",
       "run_id": "sysv1-h7"
     },
     {
@@ -8824,13 +8979,16 @@
             "ic_positive_ratio": 0.5001500150015001
           }
         },
-        "figure": "runs/sysv1-h7/display/expr_257fbfa5e1f4e8189047/pnl.png",
-        "stability_dir": "C:\\Users\\zsc\\Desktop\\independent project26-27fall\\experiments\\xy\\sysv1-h7\\display\\expr_257fbfa5e1f4e8189047\\stability",
+        "figure": "display/expr_257fbfa5e1f4e8189047/pnl.png",
+        "stability_dir": "runs/sysv1-h7/display/expr_257fbfa5e1f4e8189047/stability",
+        "label": "H04-F01",
+        "slug": "",
+        "hypothesis": "波动率压缩后的突破：低区制波动后的短周期表现",
         "oos_sharpe": 0.2375839208770945,
         "holdout_sharpe": -1.1823680634913523
       },
       "revision": 1,
-      "updated_at": "2026-10-31T14:11:23.681020+00:00",
+      "updated_at": "2026-11-01T02:17:04.917763+00:00",
       "run_id": "sysv1-h7"
     }
   ]

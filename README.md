@@ -659,6 +659,18 @@ result layer under `experiments/.index/` is:
 | `results_index.json` | materialised latest state per run/expression |
 | `results.csv` | flat table of the same index |
 
+Display figures are labelled `H<i>-F<j>` -- the i-th hypothesis from the
+ideation agent and the j-th factor derived from it -- instead of internal ids or
+long formulas (a hypothesis whose title is not ASCII falls back to the ordinal
+label alone, so no CJK font is needed). PnL is compounded: the chart plots
+`equity = (1 + daily net pnl).cumprod()` (growth of 1), and Sharpe / annualised
+return / drawdown are computed from the same compounded series. To re-label
+existing runs without re-running the agents:
+
+```powershell
+python -m factorlab.refresh_display --experiment 20261031-systemv1_50
+```
+
 Each experiment lives in `experiments/<YYYYMMDD>-<slug>/` so the experiments folder is
 chronological; raw run artifacts stay under `<experiment>/runs/` (gitignored) while the
 summary, figures, reports and archived records are committed. Publishing writes straight
@@ -1283,6 +1295,15 @@ LLM 模式下每个 agent 的 `--llm-max-turns` / `--llm-tool-calls` / `--llm-to
 | `results_events.jsonl` | append-only 事件日志（评估 / 更新） |
 | `results_index.json` | 以 run/表达式为键的物化最新状态 |
 | `results.csv` | 同一份索引的扁平表 |
+
+展示图标题使用 `H<i>-F<j>`（第 i 个假设的第 j 个因子），不用内部 id 或长公式；
+非 ASCII 标题的假设只显示序号标签，避免中文字体缺字导致的乱码。PnL 采用复利计算：
+图中曲线为 `equity = (1 + 日净收益).cumprod()`（growth of 1），Sharpe / 年化收益 / 回撤
+都由同一条复利序列计算。只改标签、不重跑 agent 时用：
+
+```powershell
+python -m factorlab.refresh_display --experiment 20261031-systemv1_50
+```
 
 每个实验存放在 `experiments/<YYYYMMDD>-<slug>/`，因此 experiments 目录按时间顺序排列；
 原始运行产物留在 `<experiment>/runs/`（已 gitignore），summary、图、报告和归档记录进入 git。

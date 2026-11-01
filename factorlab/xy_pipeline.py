@@ -640,6 +640,59 @@ def candidates_from_revisions(records: list[dict]) -> list[dict]:
 # --------------------------------------------------------------------------- #
 # display layer: OOS/holdout are allowed here and only here
 # --------------------------------------------------------------------------- #
+_STOPWORDS = {
+    "a", "an", "the", "of", "and", "or", "to", "in", "on", "for", "with", "after",
+    "before", "from", "by", "as", "at", "is", "are", "be", "when", "then", "than",
+    "that", "this", "its", "their", "it", "into", "via", "per", "vs", "versus",
+    "predict", "predicts", "predicting", "associated", "driven", "does", "do",
+    "using", "use", "based", "which", "while", "if", "not", "no", "can", "will",
+}
+_GENERIC_TITLE_WORDS = {"etf", "spy", "spdr", "s", "p", "500", "us", "usa", "index", "series"}
+
+
+def _slugify_title(title: str, max_words: int = 4) -> str:
+    """Short readable slug of a hypothesis title (never an id or raw text)."""
+    text = re.sub(r"[^A-Za-z0-9]+", " ", str(title or "")).lower()
+    words = [
+        word
+        for word in text.split()
+        if len(word) >= 3
+        and not word.isdigit()
+        and word not in _STOPWORDS
+        and word not in _GENERIC_TITLE_WORDS
+    ]
+    return "-".join(words[:max_words])[:52].strip("-")
+
+
+def display_labels(ideas: dict, records: list[dict]) -> dict:
+    """Map expression_id -> {"label": H03-F2, "hypothesis": ..., "slug": ...}.
+
+    ``H<i>`` is the i-th hypothesis the ideation agent produced and ``F<j>`` the
+    j-th factor derived from it, which is what the display figures show instead
+    of internal ids or long formulas.
+    """
+    order = {idea_id: index + 1 for index, idea_id in enumerate(ideas)}
+    counts: dict = {}
+    labels: dict = {}
+    for record in records:
+        expression_id = record.get("expression_id")
+        if not expression_id:
+            continue
+        idea_id = record.get("idea_id")
+        counts[idea_id] = counts.get(idea_id, 0) + 1
+        position = counts[idea_id]
+        index = order.get(idea_id)
+        label = f"H{index:02d}-F{position:02d}" if index else f"F{position:02d}"
+        idea = ideas.get(idea_id) or {}
+        title = idea.get("title") or record.get("hypothesis") or ""
+        labels[expression_id] = {
+            "label": label,
+            "hypothesis": str(title),
+            "slug": _slugify_title(title),
+        }
+    return labels
+
+
 def display_evaluation(
     panel_full,
     records: list[dict],
@@ -648,6 +701,9 @@ def display_evaluation(
     split=None,
     verbose: bool = True,
     only_missing: bool = True,
+    labels: Optional[dict] = None,
+    compute_stability: bool = True,
+    redraw: bool = False,
 ) -> list[dict]:
     """Re-apply the IS-chosen configuration to the full panel and draw it.
 
@@ -665,11 +721,16 @@ def display_evaluation(
     display_root = output_root / "display"
     display_root.mkdir(parents=True, exist_ok=True)
 
+    drawn = 0
     for record in records:
         if record.get("status") != "evaluated" or not record.get("expression"):
             continue
-        if only_missing and record.get("display"):
+        if only_missing and record.get("display") and not redraw:
             continue
+        drawn += 1
+        info = (labels or {}).get(record.get("expression_id")) or {}
+        label = info.get("label") or f"factor {drawn:02d}"
+        title = f"{label} · {info['slug']}" if info.get("slug") else label
         try:
             config = (record.get("is") or {}).get("config") or {}
             settings = _grid_settings({"best": config})
@@ -695,20 +756,32 @@ def display_evaluation(
                 result.segments,
                 masks,
                 target / "pnl.png",
-                f"{record['expression_id']} | {record['expression']}",
+                title,
             )
             attempt_like = {
                 "hypothesis": record["expression_id"],
                 "spec": {"kind": "expression", "expression": record["expression"]},
                 "grid": {"best": config},
             }
-            stability_dir = run_stability(
-                panel_full, attempt_like, run_id, out_dir=target / "stability"
-            )
+            stability_dir = None
+            if compute_stability:
+                stability_dir = run_stability(
+                    panel_full, attempt_like, run_id, out_dir=target / "stability"
+                )
+            elif isinstance(record.get("display"), dict):
+                stability_dir = record["display"].get("stability_dir")
             record["display"] = {
                 "segments": result.segments,
-                "figure": str(target / "pnl.png"),
-                "stability_dir": str(stability_dir),
+                "figure": (target / "pnl.png").relative_to(output_root).as_posix(),
+                "stability_dir": (
+                    (Path(stability_dir).relative_to(output_root).as_posix()
+                     if stability_dir and Path(stability_dir).is_absolute()
+                     and output_root in Path(stability_dir).parents
+                     else str(stability_dir) if stability_dir else None)
+                ),
+                "label": info.get("label"),
+                "slug": info.get("slug"),
+                "hypothesis": info.get("hypothesis"),
                 "oos_sharpe": (result.segments.get("oos") or {}).get("sharpe"),
                 "holdout_sharpe": (result.segments.get("holdout") or {}).get("sharpe"),
             }
@@ -933,9 +1006,10 @@ def run_pipeline(
         round_index += 1
 
     # ---- display layer: OOS/holdout computed and drawn here, never fed back ----
+    labels = display_labels(ideas, records)
     records = display_evaluation(
         panel_full, records, run_id, output_root, verbose=verbose,
-        only_missing=incremental and not force,
+        only_missing=incremental and not force, labels=labels,
     )
     from .xy_results import EVENTS_PATH, record_events, rebuild_index, upsert_evaluations
 
