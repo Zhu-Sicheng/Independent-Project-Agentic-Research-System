@@ -247,12 +247,18 @@ def run_backtest(
         ic_s = pd.Series(np.nan, index=idx, name="ic")
         pearson_s = pd.Series(np.nan, index=idx, name="pearson_ic")
 
-    metrics = M.summarise_pnl(net_s, to_s, ic_s, pearson_ic=pearson_s, ann=settings.ann)
+    metrics = M.summarise_pnl(
+        net_s, to_s, ic_s, pearson_ic=pearson_s, ann=settings.ann,
+        mode=getattr(settings, "pnl_mode", M.DEFAULT_PNL_MODE),
+    )
     valid_counts = pd.Series(np.isfinite(f.to_numpy()).sum(axis=1), index=idx)
     metrics["n_names"] = float(valid_counts.reindex(net_s.dropna().index).mean())
     metrics["factor_coverage"] = float(np.isfinite(f.to_numpy()).mean())
 
-    yearly = yearly_table(net_s, to_s, ic_s, settings.ann)
+    yearly = yearly_table(
+        net_s, to_s, ic_s, settings.ann,
+        mode=getattr(settings, "pnl_mode", M.DEFAULT_PNL_MODE),
+    )
 
     return BacktestResult(
         settings=settings,
@@ -312,7 +318,9 @@ def run_backtest_with_subuniverse(
     return main
 
 
-def yearly_table(net: pd.Series, to: pd.Series, ic: pd.Series, ann: int) -> pd.DataFrame:
+def yearly_table(
+    net: pd.Series, to: pd.Series, ic: pd.Series, ann: int, mode: str = "additive"
+) -> pd.DataFrame:
     rows = []
     net_clean = net.dropna()
     if net_clean.empty:
@@ -322,14 +330,21 @@ def yearly_table(net: pd.Series, to: pd.Series, ic: pd.Series, ann: int) -> pd.D
     years = net_clean.index.year
     for year in sorted(set(years)):
         sub = net_clean.loc[years == year]
-        cum = (1.0 + sub).cumprod()
+        if mode == "compound":
+            cum = (1.0 + sub).cumprod()
+            total = float(cum.iloc[-1] - 1.0)
+            mdd = M.max_drawdown(cum)
+        else:
+            cum = sub.cumsum()
+            total = float(cum.iloc[-1])
+            mdd = M.max_drawdown((1.0 + cum).clip(lower=0.0))
         rows.append(
             {
                 "year": int(year),
-                "total_return": float(cum.iloc[-1] - 1.0),
+                "total_return": total,
                 "sharpe": M.sharpe_ratio(sub, ann),
                 "turnover": float(to.reindex(sub.index).mean() * ann),
-                "max_drawdown": M.max_drawdown(cum),
+                "max_drawdown": mdd,
                 "ic": float(ic.reindex(sub.index).mean()),
                 "n_days": int(len(sub)),
             }

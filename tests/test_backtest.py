@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
+from factorlab.backtest import metrics as M
 from factorlab.backtest.engine import run_backtest
 from factorlab.backtest.grid import GridSearch
 from factorlab.config import BacktestSettings, GridConfig
@@ -97,6 +98,32 @@ class TestBacktest(unittest.TestCase):
         )
         self.assertLess(result.metrics["factor_coverage"], 0.8)
         self.assertLess(result.metrics["n_names"], 20)
+
+
+class TestPnlMode(unittest.TestCase):
+    def test_additive_is_the_default(self):
+        net = pd.Series([0.01, -0.02, 0.03, -0.01, 0.005])
+        turnover = pd.Series(1.0, index=net.index)
+        metrics = M.summarise_pnl(net, turnover)
+        self.assertEqual(metrics["pnl_mode"], "additive")
+        self.assertAlmostEqual(metrics["total_return"], float(net.sum()))
+        self.assertAlmostEqual(metrics["ann_return"], float(net.sum() * 252 / len(net)))
+        wealth = (1.0 + net.cumsum()).clip(lower=0.0)
+        self.assertAlmostEqual(metrics["max_drawdown"], float((wealth / wealth.cummax() - 1).min()))
+
+    def test_compound_mode_reproduces_wealth_curve(self):
+        net = pd.Series([0.01, -0.02, 0.03, -0.01, 0.005])
+        turnover = pd.Series(1.0, index=net.index)
+        metrics = M.summarise_pnl(net, turnover, mode="compound")
+        expected = float((1.0 + net).cumprod().iloc[-1] - 1.0)
+        self.assertAlmostEqual(metrics["total_return"], expected)
+
+    def test_sharpe_is_identical_across_pnl_modes(self):
+        net = pd.Series([0.01, -0.02, 0.03, -0.01, 0.005, 0.002])
+        turnover = pd.Series(1.0, index=net.index)
+        additive = M.summarise_pnl(net, turnover, mode="additive")
+        compound = M.summarise_pnl(net, turnover, mode="compound")
+        self.assertAlmostEqual(additive["sharpe"], compound["sharpe"])
 
 
 class TestGrid(unittest.TestCase):

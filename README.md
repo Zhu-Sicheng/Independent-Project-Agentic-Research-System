@@ -662,14 +662,24 @@ result layer under `experiments/.index/` is:
 Display figures are labelled `H<i>-F<j>` -- the i-th hypothesis from the
 ideation agent and the j-th factor derived from it -- instead of internal ids or
 long formulas (a hypothesis whose title is not ASCII falls back to the ordinal
-label alone, so no CJK font is needed). PnL is compounded: the chart plots
-`equity = (1 + daily net pnl).cumprod()` (growth of 1), and Sharpe / annualised
-return / drawdown are computed from the same compounded series. To re-label
-existing runs without re-running the agents:
+label alone, so no CJK font is needed). PnL is **additive by default**: the
+chart plots `equity = daily net pnl.cumsum()` over the full sample (y axis
+"cumulative pnl (cumsum, 1x gross)"), `total_return` is the terminal cumsum and
+`ann_return = total_return * 252 / n_days`, with drawdown taken on `1 + cumsum`.
+Sharpe is unchanged (it is computed from daily net returns). Pass
+`--pnl-mode compound` to get the old `(1 + pnl).cumprod()` convention instead.
+To re-label existing runs without re-running the agents:
 
 ```powershell
 python -m factorlab.refresh_display --experiment 20261031-systemv1_50
 ```
+
+已按加总口径重算统计、重画全部图（不重跑 agent，`--stability` 默认重跑 IS 稳健性）：
+
+```powershell
+python -m factorlab.recompute_pnl --experiment 20261031-systemv1_50
+```
+
 
 Each experiment lives in `experiments/<YYYYMMDD>-<slug>/` so the experiments folder is
 chronological; raw run artifacts stay under `<experiment>/runs/` (gitignored) while the
@@ -1297,9 +1307,11 @@ LLM 模式下每个 agent 的 `--llm-max-turns` / `--llm-tool-calls` / `--llm-to
 | `results.csv` | 同一份索引的扁平表 |
 
 展示图标题使用 `H<i>-F<j>`（第 i 个假设的第 j 个因子），不用内部 id 或长公式；
-非 ASCII 标题的假设只显示序号标签，避免中文字体缺字导致的乱码。PnL 采用复利计算：
-图中曲线为 `equity = (1 + 日净收益).cumprod()`（growth of 1），Sharpe / 年化收益 / 回撤
-都由同一条复利序列计算。只改标签、不重跑 agent 时用：
+非 ASCII 标题的假设只显示序号标签，避免中文字体缺字导致的乱码。PnL **默认采用加总口径**：
+图中曲线为 `equity = 日净收益.cumsum()`（y 轴 "cumulative pnl (cumsum, 1x gross)"），
+`total_return` 取期末累加值，`ann_return = total_return * 252 / n_days`，回撤基于 `1 + cumsum`；
+Sharpe 不变（仍按日净收益计算）。如需旧的复利口径，传 `--pnl-mode compound`。
+只改标签、不重跑 agent 时用：
 
 ```powershell
 python -m factorlab.refresh_display --experiment 20261031-systemv1_50

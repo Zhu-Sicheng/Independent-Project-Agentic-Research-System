@@ -99,6 +99,29 @@ def max_drawdown(cum: pd.Series) -> float:
     return float(dd.min())
 
 
+PNL_MODES = ("additive", "compound")
+#: the project reports cumulative pnl as a plain sum of daily net pnl
+DEFAULT_PNL_MODE = "additive"
+
+
+def cumulative_curve(net: pd.Series, mode: str = DEFAULT_PNL_MODE) -> pd.Series:
+    """Cumulative pnl: ``cumsum`` (additive, default) or compounded wealth."""
+    if mode not in PNL_MODES:
+        raise ValueError(f"unknown pnl mode {mode!r}; expected one of {PNL_MODES}")
+    if mode == "compound":
+        return (1.0 + net).cumprod()
+    return net.cumsum()
+
+
+def drawdown_curve(net: pd.Series, mode: str = DEFAULT_PNL_MODE) -> pd.Series:
+    """Drawdown of the capital curve implied by the selected pnl mode."""
+    if mode == "compound":
+        wealth = cumulative_curve(net, "compound")
+    else:
+        wealth = (1.0 + cumulative_curve(net, "additive")).clip(lower=0.0)
+    return wealth / wealth.cummax() - 1.0
+
+
 def sharpe_ratio(returns: pd.Series, ann: int = 252) -> float:
     r = returns.dropna()
     if len(r) < 5 or r.std() == 0:
@@ -106,9 +129,21 @@ def sharpe_ratio(returns: pd.Series, ann: int = 252) -> float:
     return float(r.mean() / r.std() * np.sqrt(ann))
 
 
-def annualized_return(cum: pd.Series, ann: int = 252) -> float:
+def annualized_return(
+    cum: pd.Series, ann: int = 252, mode: str = "compound"
+) -> float:
+    """Annualise a cumulative curve.
+
+    ``compound`` treats ``cum`` as a wealth index and compounds the terminal
+    value; ``additive`` treats it as cumulative net pnl and simply scales the
+    terminal value by ``ann / n_days``.
+    """
     cum = cum.dropna()
-    if len(cum) < 2 or cum.iloc[-1] <= 0:
+    if len(cum) < 2:
+        return float("nan")
+    if mode == "additive":
+        return float(cum.iloc[-1] * ann / len(cum))
+    if cum.iloc[-1] <= 0:
         return float("nan")
     n = len(cum)
     return float(cum.iloc[-1] ** (ann / n) - 1.0)
@@ -125,6 +160,7 @@ def summarise_pnl(
     ic: Optional[pd.Series] = None,
     pearson_ic: Optional[pd.Series] = None,
     ann: int = 252,
+    mode: str = DEFAULT_PNL_MODE,
 ) -> dict:
     net = net.dropna()
     if net.empty:
@@ -136,18 +172,25 @@ def summarise_pnl(
             "max_drawdown": float("nan"),
             "turnover": float("nan"),
         }
-    cum = (1.0 + net).cumprod()
-    ann_ret = annualized_return(cum, ann)
+    cum = cumulative_curve(net, mode)
+    if mode == "additive":
+        total_return = float(cum.iloc[-1])
+        mdd = max_drawdown((1.0 + cum).clip(lower=0.0))
+    else:
+        total_return = float(cum.iloc[-1] - 1.0)
+        mdd = max_drawdown(cum)
+    ann_ret = annualized_return(cum, ann, mode)
     ann_vol = float(net.std() * np.sqrt(ann))
     shp = sharpe_ratio(net, ann)
     to = float(turnover.reindex(net.index).mean() * ann)
     out = {
         "n_days": int(net.size),
-        "total_return": float(cum.iloc[-1] - 1.0),
+        "pnl_mode": mode,
+        "total_return": total_return,
         "ann_return": ann_ret,
         "ann_vol": ann_vol,
         "sharpe": shp,
-        "max_drawdown": max_drawdown(cum),
+        "max_drawdown": mdd,
         "turnover": to,
         "hit_rate": float((net > 0).mean()),
         "fitness": float(shp * np.sqrt(abs(ann_ret) / max(to, 0.125)))

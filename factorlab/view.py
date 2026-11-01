@@ -121,7 +121,8 @@ def rebuild_result(
                             holdout_end=ranges[2][1] if ranges[2] else None)
     masks = resolve_split(panel.dates, split)
     result.segments = segment_metrics(
-        result.pnl, result.turnover, result.ic, result.factor, masks, ann=settings.ann
+        result.pnl, result.turnover, result.ic, result.factor, masks, ann=settings.ann,
+        mode=getattr(settings, "pnl_mode", "additive"),
     )
     if result.subuniverse is not None:
         result.subuniverse.segments = segment_metrics(
@@ -131,25 +132,38 @@ def rebuild_result(
             result.subuniverse.factor,
             masks,
             ann=settings.ann,
+            mode=getattr(settings, "pnl_mode", "additive"),
         )
     return result, masks
 
 
-def yearly_stats(pnl: pd.Series, turnover: pd.Series, ic: pd.Series) -> pd.DataFrame:
+def yearly_stats(
+    pnl: pd.Series,
+    turnover: pd.Series,
+    ic: pd.Series,
+    mode: str = "additive",
+) -> pd.DataFrame:
     """Calendar-year sharpe / return / turnover / drawdown / rank IC."""
     from .backtest import metrics as M
 
     rows = []
     clean = pnl.dropna()
     for year, sub in clean.groupby(clean.index.year):
-        cum = (1 + sub).cumprod()
+        if mode == "compound":
+            cum = (1 + sub).cumprod()
+            total = float(cum.iloc[-1] - 1)
+            mdd = M.max_drawdown(cum)
+        else:
+            cum = sub.cumsum()
+            total = float(cum.iloc[-1])
+            mdd = M.max_drawdown((1.0 + cum).clip(lower=0.0))
         rows.append(
             {
                 "year": int(year),
-                "return": float(cum.iloc[-1] - 1),
+                "return": total,
                 "sharpe": M.sharpe_ratio(sub),
                 "turnover": float(turnover.reindex(sub.index).mean() * 252),
-                "max_drawdown": M.max_drawdown(cum),
+                "max_drawdown": mdd,
                 "rank_ic": float(ic.reindex(sub.index).mean()),
                 "n_days": int(len(sub)),
             }
@@ -182,6 +196,7 @@ def plot_result(
         masks,
         out_path,
         title,
+        mode=getattr(result.settings, "pnl_mode", "additive"),
     )
 
 
@@ -205,8 +220,17 @@ def plot_from_daily(
     )
 
 
-def draw_panels(pnl_series, turnover_series, ic_series, segments, masks, out_path: Path, title: str) -> Path:
-    """Equity, drawdown, yearly sharpe and yearly return in one figure."""
+def draw_panels(
+    pnl_series,
+    turnover_series,
+    ic_series,
+    segments,
+    masks,
+    out_path: Path,
+    title: str,
+    mode: str = "additive",
+) -> Path:
+    """Cumulative pnl, drawdown, yearly sharpe and yearly return in one figure."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -216,9 +240,18 @@ def draw_panels(pnl_series, turnover_series, ic_series, segments, masks, out_pat
     pnl = pd.Series(pnl_series).fillna(0.0)
     turnover = pd.Series(turnover_series) if turnover_series is not None else pd.Series(0.0, index=pnl.index)
     ic = pd.Series(ic_series) if ic_series is not None else pd.Series(np.nan, index=pnl.index)
-    equity = (1 + pnl).cumprod()
-    drawdown = equity / equity.cummax() - 1
-    yearly = yearly_stats(pnl, turnover, ic)
+    if mode == "compound":
+        equity = (1 + pnl).cumprod()
+        drawdown = equity / equity.cummax() - 1
+        total_value = float(equity.iloc[-1] - 1) if len(equity) else float("nan")
+        equity_label = "growth of 1 (1x gross)"
+    else:
+        equity = pnl.cumsum()
+        wealth = (1 + equity).clip(lower=0.0)
+        drawdown = wealth / wealth.cummax() - 1
+        total_value = float(equity.iloc[-1]) if len(equity) else float("nan")
+        equity_label = "cumulative pnl (cumsum, 1x gross)"
+    yearly = yearly_stats(pnl, turnover, ic, mode=mode)
     segments = segments or {}
 
     fig, axes = plt.subplots(
@@ -231,6 +264,7 @@ def draw_panels(pnl_series, turnover_series, ic_series, segments, masks, out_pat
     # ---- equity, shaded by segment -----------------------------------
     ax = axes[0]
     ax.plot(equity.index, equity.values, color="#1f4e79", linewidth=1.4, label="cumulative pnl")
+    ax.set_ylabel(equity_label)
     seg_styles = {
         "is": ("#dfe9f7", "in-sample"),
         "oos": ("#fdeedd", "out-of-sample"),
@@ -258,7 +292,6 @@ def draw_panels(pnl_series, turnover_series, ic_series, segments, masks, out_pat
         )
     import textwrap
     ax.set_title("\n".join(textwrap.wrap(title, 110)), fontsize=8.5)
-    ax.set_ylabel("growth of 1 (1x gross)")
     ax.grid(alpha=0.25)
     ax.legend(fontsize=7, loc="lower left", frameon=False)
 
@@ -297,7 +330,7 @@ def draw_panels(pnl_series, turnover_series, ic_series, segments, masks, out_pat
         ax.set_ylabel("yearly return (%)")
         ax.tick_params(axis="x", labelrotation=60, labelsize=7)
         ax.grid(alpha=0.2, axis="y")
-        total = float(equity.iloc[-1] - 1) if len(equity) else float("nan")
+        total = total_value
         ax.text(
             0.99,
             0.92,

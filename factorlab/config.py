@@ -93,6 +93,9 @@ class BacktestSettings:
     #: (``if_else(rank(cap) > 0.3, factor, nan)``); ``None`` disables it
     subuniverse: Optional[float] = 0.3
     compute_subuniverse: bool = True
+    #: how cumulative pnl is reported everywhere:
+    #: ``additive`` = cumsum of daily net pnl, ``compound`` = (1 + pnl).cumprod()
+    pnl_mode: str = "additive"
 
     def replace(self, **kwargs) -> "BacktestSettings":
         data = asdict(self)

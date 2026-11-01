@@ -557,7 +557,7 @@ class MiningLoop:
                     pnl = self.pool.load_pnl(fid)
                 except FileNotFoundError:
                     continue
-                ax.plot((1 + pnl.fillna(0)).cumprod(), label=fid, linewidth=1.2)
+                ax.plot(pnl.fillna(0).cumsum(), label=fid, linewidth=1.2)
             ax.set_title("Factor pool equity curves (1x gross, no costs)")
             ax.set_ylabel("growth of 1")
             ax.legend(fontsize=7, loc="upper left")

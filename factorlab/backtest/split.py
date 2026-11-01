@@ -223,6 +223,7 @@ def segment_metrics(
     factor: Optional[pd.DataFrame],
     masks: "SplitMasks",
     ann: int = 252,
+    mode: str = "additive",
 ) -> dict[str, dict]:
     """Summarise the same pnl series on the full / IS / OOS / holdout segments."""
     out: dict[str, dict] = {}
@@ -232,7 +233,7 @@ def segment_metrics(
         sub_pnl = pnl.loc[mask]
         sub_to = turnover.loc[mask]
         sub_ic = ic.loc[mask] if ic is not None else None
-        m = M.summarise_pnl(sub_pnl, sub_to, sub_ic, ann=ann)
+        m = M.summarise_pnl(sub_pnl, sub_to, sub_ic, ann=ann, mode=mode)
         if factor is not None:
             counts = factor.loc[mask].notna().sum(axis=1)
             m["n_names"] = float(counts.reindex(sub_pnl.dropna().index).mean())

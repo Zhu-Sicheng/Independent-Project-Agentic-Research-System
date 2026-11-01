@@ -235,7 +235,7 @@ def draw_single_panel(
             _, width, style = GROUP_STYLE.get(group, ("#7f7f7f", 1.0, "-"))
             zorder = 3
 
-        equity = (1 + pd.Series(pnl).fillna(0.0)).cumprod()
+        equity = pd.Series(pnl).fillna(0.0).cumsum()
         sharpe = sharpes.get(name)
         label = f"{name} (S={sharpe:.2f})" if isinstance(sharpe, (int, float)) and np.isfinite(sharpe) else name
         ax.plot(equity.index, equity.values, color=color, linewidth=width, linestyle=style, alpha=0.9, label=label, zorder=zorder)

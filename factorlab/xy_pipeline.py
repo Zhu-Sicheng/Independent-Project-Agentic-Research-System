@@ -321,7 +321,7 @@ def _load_factor(panel, expression: str, windows: Optional[list[int]] = None):
     return evaluate(ast, panel)
 
 
-def _grid_settings(grid_summary: dict):
+def _grid_settings(grid_summary: dict, pnl_mode: str = "additive"):
     import math
 
     from factorlab.config import BacktestSettings
@@ -338,6 +338,7 @@ def _grid_settings(grid_summary: dict):
         decay=int(best.get("decay") or 0),
         transform=str(best.get("transform") or "none"),
         cap_filter=cap,
+        pnl_mode=pnl_mode,
     )
 
 
@@ -704,6 +705,7 @@ def display_evaluation(
     labels: Optional[dict] = None,
     compute_stability: bool = True,
     redraw: bool = False,
+    pnl_mode: str = "additive",
 ) -> list[dict]:
     """Re-apply the IS-chosen configuration to the full panel and draw it.
 
@@ -733,19 +735,21 @@ def display_evaluation(
         title = f"{label} · {info['slug']}" if info.get("slug") else label
         try:
             config = (record.get("is") or {}).get("config") or {}
-            settings = _grid_settings({"best": config})
+            settings = _grid_settings({"best": config}, pnl_mode)
             windows = config.get("windows") or []
             factor = _load_factor(panel_full, record["expression"], windows)
             result = run_backtest_with_subuniverse(factor, panel_full, settings)
             result.segments = segment_metrics(
-                result.pnl, result.turnover, result.ic, factor, masks
+                result.pnl, result.turnover, result.ic, factor, masks,
+                mode=getattr(settings, "pnl_mode", "additive"),
             )
             # segment_metrics aliases full=is when no full mask exists; the display
             # layer must show the true full-sample metric instead
             from factorlab.backtest import metrics as _M
 
             result.segments["full"] = _M.summarise_pnl(
-                result.pnl, result.turnover, result.ic, ann=settings.ann
+                result.pnl, result.turnover, result.ic, ann=settings.ann,
+                mode=getattr(settings, "pnl_mode", "additive"),
             )
             target = display_root / str(record["expression_id"])
             target.mkdir(parents=True, exist_ok=True)
@@ -810,6 +814,7 @@ def run_pipeline(
     max_evals: int = 16,
     max_expressions_per_idea: int = 1,
     rounds: int = 3,
+    pnl_mode: str = "additive",
     agent_modes: Optional[dict] = None,
     min_ideas: int = 2,
     max_ideas: int = 6,
@@ -892,7 +897,9 @@ def run_pipeline(
     panel_full = load_processed(panel_dir)
     panel_is = split_is_panel(panel_full, research_end)
     say(f"panel: full {panel_full.shape} -> IS only {panel_is.shape} (cut at {research_end})")
-    grid = GridSearch(panel_is, GridConfig(max_evals=max_evals), BacktestSettings(), split=None)
+    grid = GridSearch(
+        panel_is, GridConfig(max_evals=max_evals), BacktestSettings(pnl_mode=pnl_mode), split=None
+    )
     critic = CriticAgent(build_client(LLMSettings.from_env()))
 
     agent3_runs: list[str] = []
@@ -1009,7 +1016,7 @@ def run_pipeline(
     labels = display_labels(ideas, records)
     records = display_evaluation(
         panel_full, records, run_id, output_root, verbose=verbose,
-        only_missing=incremental and not force, labels=labels,
+        only_missing=incremental and not force, labels=labels, pnl_mode=pnl_mode,
     )
     from .xy_results import EVENTS_PATH, record_events, rebuild_index, upsert_evaluations
 
@@ -1184,6 +1191,8 @@ def main(argv: Optional[list[str]] = None) -> None:
         help="in-sample end; the optimisation loop never sees dates after it",
     )
     parser.add_argument("--rounds", type=int, default=3, help="feedback rounds to run")
+    parser.add_argument("--pnl-mode", choices=("additive", "compound"), default="additive",
+                        help="cumulative pnl convention (default: additive cumsum)")
     parser.add_argument("--incremental", dest="incremental", action="store_true", default=True,
                         help="resume an existing run and only evaluate new expressions (default)")
     parser.add_argument("--no-incremental", dest="incremental", action="store_false",
@@ -1224,6 +1233,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         max_evals=args.max_evals,
         max_expressions_per_idea=args.max_expressions_per_idea,
         rounds=args.rounds,
+        pnl_mode=args.pnl_mode,
         incremental=args.incremental,
         force=args.force,
         agent_modes=agent_modes,
