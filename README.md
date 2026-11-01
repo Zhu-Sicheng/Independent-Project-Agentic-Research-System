@@ -70,7 +70,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # full
 
 > In PowerShell an expression starting with `-` needs the `--expression="..."` form,
 > otherwise it is parsed as a flag.
-> Tests: `python -m unittest discover -s tests` (77 cases).
+> Tests: `python -m unittest discover -s tests` (135 cases).
 
 ### 2. Layout
 
@@ -103,10 +103,20 @@ factorlab/
     fallback.py        # rule-based research library used without an LLM
   pool/
     pool.py            # factor pool storage + correlations
+  agent_adapter.py     # Agent 1-3 vocabulary <-> our panel field names
+  agent4/              # OUR evaluation layer (in-sample only)
+    isolation.py       #   panel cut + the IS-only review protocol
+    evaluation.py      #   in-sample grid + stability + reviewer evidence
+    labels.py          #   H<i>-F<j> display labels
+    display.py         #   OOS/holdout metrics and figures (presentation only)
+  agent5/              # OUR feedback layer
+    feedback.py        #   in-sample feedback records -> agent memory
+    decision.py        #   round-improvement checks + reviewer revisions
   orchestrator.py      # mining loop, logging, report, equity plot
   cli.py               # command line entry point
 docs/
   agent_contracts.md   # JSON contracts between 2.1 / 2.2 / 3
+  agent4_agent5.md     # OUR evaluation/feedback layers + data-isolation contract
   operators.md         # approved operator signatures and definitions
 experiments/
   20261030-us-mining/      # date-ordered: one directory per experiment
@@ -791,7 +801,7 @@ python -m factorlab expr --expression="ts_std_dev(returns,20)" --grid     # 走�
 ```
 
 > PowerShell 里以 `-` 开头的表达式要用 `--expression="..."` 的等号写法，否则会被当成参数名。
-> 测试：`python -m unittest discover -s tests`（77 个用例）。
+> 测试：`python -m unittest discover -s tests`（135 个用例）。
 
 ### 2. 目录结构
 
@@ -824,10 +834,20 @@ factorlab/
     fallback.py        # 无 LLM 时的规则版研究库
   pool/
     pool.py            # 因子池存储 + 相关性计算
+  agent_adapter.py     # 我方模块与 Agent 1-3 词汇表的适配层（字段翻译）
+  agent4/              # 我方评估层（只允许看样本内）
+    isolation.py       #   面板截断 + IS-only 评审协议
+    evaluation.py      #   样本内网格 + 稳定性检验 + 评审证据
+    labels.py          #   H<i>-F<j> 展示标签
+    display.py         #   OOS/holdout 指标与图（仅展示，不回流）
+  agent5/              # 我方反馈层
+    feedback.py        #   把样本内证据写回 agent memory
+    decision.py        #   反馈轮改进判断 + 评审改写候选
   orchestrator.py      # 挖掘主循环、日志、报告、净值图
   cli.py               # 命令行入口
 docs/
   agent_contracts.md   # 2.1 / 2.2 / 3 的 JSON 接口契约
+  agent4_agent5.md     # 我方评估/反馈层与数据隔离契约
   operators.md         # 白名单算子的签名与定义
 experiments/
   20261030-us-mining/      # 按日期排序：每个实验一个目录
