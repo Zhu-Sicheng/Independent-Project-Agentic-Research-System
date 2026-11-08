@@ -1,0 +1,53 @@
+[
+  {
+    "title": "Liquidity-shock reversal: abnormally high activity after an up move predicts a pullback",
+    "family": "liquidity_shock_reversal",
+    "dataset_id": "market_ohlcv",
+    "mechanism": "Attention-driven buying creates temporary price pressure when trading activity spikes after a price rise. The pressure is inventory-driven rather than information-driven, so it decays over subsequent days as market makers re-hedge and early buyers realise gains.",
+    "signal_concept": "Recent trading activity relative to its own recent baseline, measured after a price rise. Higher abnormal activity marks stronger temporary pressure and a larger expected pullback.",
+    "required_fields": ["close", "volume", "returns"],
+    "expected_return_direction": "negative",
+    "forecast_horizon_days": 5,
+    "lookback_hint_days": [5, 20, 60],
+    "applicability": ["US large-cap equities with at least 60 trading days of history"],
+    "failure_modes": ["news regimes where the activity spike carries genuine information", "names whose baseline activity is too noisy to define abnormal"],
+    "evidence_ids": ["evidence:volume_price_relationship"],
+    "history_record_ids": [],
+    "novelty_rationale": "Recent records cover generic short-horizon reversal; this idea conditions on the activity spike and the prior up-move state.",
+    "required_operators": ["time-series", "element-wise"]
+  },
+  {
+    "title": "Close-position persistence: repeated end-of-day demand absorption predicts continuation",
+    "family": "close_position_persistence",
+    "dataset_id": "market_ohlcv",
+    "mechanism": "When the close repeatedly sits near the top of the daily range, end-of-day buying is absorbing available supply. If that demand is institutional and gradual, the accumulation is not finished and continues into following sessions.",
+    "signal_concept": "The average position of the close inside the daily high-low range over a recent window. A higher average position indicates persistent demand-side pressure.",
+    "required_fields": ["high", "low", "close", "range"],
+    "expected_return_direction": "positive",
+    "forecast_horizon_days": 10,
+    "lookback_hint_days": [5, 10, 20],
+    "applicability": ["liquid equities where the closing auction is meaningful", "regimes without dominant end-of-quarter window dressing"],
+    "failure_modes": ["closing-auction distortions around index or quarter-end events", "thin names where the daily range is dominated by a single print"],
+    "evidence_ids": ["evidence:intraday_range_position"],
+    "history_record_ids": [],
+    "novelty_rationale": "Existing records use single-day range position; this idea looks at persistence of the position across days and interprets it as ongoing absorption.",
+    "required_operators": ["time-series", "element-wise"]
+  },
+  {
+    "title": "Overnight move reversal: the overnight return channel partly reverses during the next sessions",
+    "family": "overnight_reversal",
+    "dataset_id": "etf_ohlcv",
+    "mechanism": "Overnight moves are dominated by retail attention and liquidity gaps while continuous-session trading is dominated by institutions. Inventory taken overnight is unwound once deeper liquidity arrives during the session.",
+    "signal_concept": "The overnight component of the most recent return, measured separately from the open-to-close component. A larger positive overnight move indicates more temporary overnight demand and a higher expected reversal.",
+    "required_fields": ["open", "close", "overnight_return", "intraday_return"],
+    "expected_return_direction": "negative",
+    "forecast_horizon_days": 3,
+    "lookback_hint_days": [1, 3, 5],
+    "applicability": ["single liquid index instrument with reliable open prints"],
+    "failure_modes": ["macro announcements that move the instrument permanently", "sessions where the open print is stale or auction-distorted"],
+    "evidence_ids": ["evidence:overnight_intraday_split"],
+    "history_record_ids": [],
+    "novelty_rationale": "Recent time-series records use total return; this idea isolates the overnight channel and its reversal.",
+    "required_operators": ["time-series", "element-wise"]
+  }
+]

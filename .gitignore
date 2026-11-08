@@ -17,8 +17,8 @@ experiments/*/stability/*/pnl_daily.csv
 experiments/.index/
 tests/_tmp/
 
-# research inputs / reports (keep the code repo small)
-references/
+# research inputs / reports (keep the code repo small; root-level only)
+/references/
 references*.zip
 *.pptx
 *.pdf

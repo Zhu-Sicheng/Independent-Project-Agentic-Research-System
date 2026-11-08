@@ -118,6 +118,9 @@ docs/
   agent_contracts.md   # JSON contracts between 2.1 / 2.2 / 3
   agent4_agent5.md     # OUR evaluation/feedback layers + data-isolation contract
   operators.md         # approved operator signatures and definitions
+skills/                # idea-layer SKILL.md pack (inspiration + hypothesis design)
+  validate.py          # contract + idea-layer boundary checks (runs in CI)
+  install.py           # copy the pack into an agent's skills directory
 experiments/
   20261030-us-mining/      # date-ordered: one directory per experiment
   20261030-llm-real/
@@ -720,6 +723,26 @@ as `candidate_requires_confirmation` and Agent 3 returns
 `research_validated_requires_metadata`; those are evaluated as research
 candidates with the metadata blockers recorded, never silently promoted.
 
+### 8.5 Idea skills (idea layer only)
+
+`skills/` is a portable pack of six `SKILL.md` skills that cover **only** factor
+inspiration and hypothesis design: mechanism-first idea generation
+(`factor-idea-scout`), a documented anomaly catalogue (`anomaly-taxonomy`),
+paper-to-hypothesis (`paper-to-hypothesis`), event/theme radar
+(`event-theme-radar`), hypothesis formalisation (`hypothesis-formalizer`) and
+batch diversity planning (`idea-diversity-planner`).
+
+They emit the same 15-field idea record that the Agent-2 interface consumes
+(title, family, dataset, mechanism, signal concept, required fields, direction,
+horizon, lookbacks, applicability, failure modes, evidence, novelty). The pack
+stops at the idea: implementation and any performance work remain in the
+existing pipeline, and the validator enforces that boundary.
+
+```powershell
+python skills/validate.py                      # contract + boundary checks (also in CI)
+python skills/install.py --dest <skills dir>   # e.g. %USERPROFILE%\.claude\skills
+```
+
 ### 9. Known limitations / next steps
 
 1. **Only price/volume**: no sector, size neutralisation or fundamentals;
@@ -849,6 +872,9 @@ docs/
   agent_contracts.md   # 2.1 / 2.2 / 3 的 JSON 接口契约
   agent4_agent5.md     # 我方评估/反馈层与数据隔离契约
   operators.md         # 白名单算子的签名与定义
+skills/                # 创意层 SKILL.md 技能包（因子灵感 + 假设提出）
+  validate.py          # 契约与创意层边界校验（CI 会跑）
+  install.py           # 把技能包安装到 agent 的 skills 目录
 experiments/
   20261030-us-mining/      # 按日期排序：每个实验一个目录
   20261030-llm-real/
@@ -1361,6 +1387,18 @@ lookback（如 `ts_returns(x, 1)`），网格仍只替换我们配置的窗口�
 说明：Agent 1 只给每数据集 40 个文件的预算，字段契约因此标记为
 `candidate_requires_confirmation`、Agent 3 输出 `research_validated_requires_metadata`；
 流水线把这些当作研究候选继续评估并记录字段阻塞，不会静默提升为正式数据。
+
+### 8.5 创意层技能包（只做因子灵感与假设）
+
+`skills/` 是一个可移植的 `SKILL.md` 技能包，包含 6 个只服务于**因子灵感与假设提出**的技能：
+机制优先的创意生成、公开异象目录、论文/报告转假设、事件/主题雷达、假设规范化、批次多样化规划。
+它们输出与 Agent-2 接口一致的 15 字段 idea 记录（标题、家族、数据集、机制、信号概念、字段、
+方向、期限、回看、适用性、失效条件、证据、新颖性），不涉及实现与任何绩效工作。
+
+```powershell
+python skills/validate.py                      # 契约与创意层边界校验（CI 会跑）
+python skills/install.py --dest <skills 目录>  # 例如 %USERPROFILE%\.claude\skills
+```
 
 ### 9. 已知限制 / 下一步
 
