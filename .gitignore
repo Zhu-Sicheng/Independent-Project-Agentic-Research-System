@@ -49,3 +49,9 @@ progress.md
 # deploy key for this machine (never commit)
 .deploy_key*
 .ssh_home/
+
+# campaign working directories: only summary.csv / README.md are published
+experiments/20261114-systemv1-500/s500-*/
+experiments/20261114-systemv1-500/logs/
+experiments/20261114-systemv1-500/progress.log
+experiments/20261114-systemv1-500/research_memory.sqlite3

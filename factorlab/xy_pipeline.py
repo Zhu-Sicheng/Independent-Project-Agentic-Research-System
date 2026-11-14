@@ -366,14 +366,33 @@ def run_pipeline(
         llm_token_budget=llm_token_budget,
     )
     say(f"agent1: {agent1_dir.name} status={agent1_report.get('status')}")
-    agent2_dir, agent2_result = run_agent2(
-        agent1_dir, output_root / "agent2", memory_db, operator_file,
-        mode=modes["agent2"], min_ideas=min_ideas, max_ideas=max_ideas,
-        max_ideas_per_dataset=max_ideas_per_dataset,
-        max_ideas_per_family=max_ideas_per_family,
-        llm_max_turns=llm_max_turns, llm_tool_calls=llm_tool_calls,
-        llm_token_budget=llm_token_budget,
-    )
+    if agent1_report.get("status") != "completed":
+        # a partial EDA run makes Agent 3 refuse the chain; fall back to the
+        # deterministic agent so one flaky LLM call cannot kill the whole run
+        say("agent1: status is not completed; retrying offline")
+        agent1_dir, agent1_report = run_agent1(
+            output_root / "agent1", data_root, research_end, mode="offline",
+            max_files=max_files, max_rows=max_rows, plots=plots,
+        )
+        say(f"agent1: {agent1_dir.name} status={agent1_report.get('status')} (offline)")
+
+    def _run_agent2(mode: str):
+        return run_agent2(
+            agent1_dir, output_root / "agent2", memory_db, operator_file,
+            mode=mode, min_ideas=min_ideas, max_ideas=max_ideas,
+            max_ideas_per_dataset=max_ideas_per_dataset,
+            max_ideas_per_family=max_ideas_per_family,
+            llm_max_turns=llm_max_turns, llm_tool_calls=llm_tool_calls,
+            llm_token_budget=llm_token_budget,
+        )
+
+    agent2_dir, agent2_result = _run_agent2(modes["agent2"])
+    if agent2_result.get("status") != "completed" and modes["agent2"] != "offline":
+        say(f"agent2: status={agent2_result.get('status')}; retrying once")
+        agent2_dir, agent2_result = _run_agent2(modes["agent2"])
+    if agent2_result.get("status") != "completed":
+        say("agent2: falling back to offline ideas so the run can continue")
+        agent2_dir, agent2_result = _run_agent2("offline")
     ideas_list = agent2_result.get("ideas", [])
     ideas = {idea["idea_id"]: idea for idea in ideas_list}
     say(f"agent2: {agent2_dir.name} status={agent2_result.get('status')} ideas={len(ideas_list)}")

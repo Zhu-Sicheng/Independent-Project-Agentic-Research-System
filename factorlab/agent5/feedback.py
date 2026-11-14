@@ -91,18 +91,31 @@ def write_feedback(memory_db: Path, records: list[dict], run_id: str, research_e
                     "suggested_changes": record.get("suggested_changes", []),
                 },
             }
-            memory.append(
-                kind="feedback",
-                run_id=run_id,
-                logical_id=f"{record.get('expression_id')}_is_feedback",
-                dataset_id=record.get("_dataset_id") or "ds_market",
-                family=record.get("_family") or "unknown",
-                data_end=research_end,
-                split="development",
-                outcome="inconclusive",
-                payload=payload,
-            )
-            written += 1
+            # A revised expression can be re-evaluated in a later round with the
+            # same expression id; the append-only store keys identity by
+            # (kind, run_id, logical_id), so the round must be part of the id.
+            # A collision with different content must never kill the run.
+            try:
+                changes_before = memory.connection.total_changes
+                memory.append(
+                    kind="feedback",
+                    run_id=run_id,
+                    logical_id=(
+                        f"{record.get('expression_id')}"
+                        f"_is_r{record.get('round', 0)}_feedback"
+                    ),
+                    dataset_id=record.get("_dataset_id") or "ds_market",
+                    family=record.get("_family") or "unknown",
+                    data_end=research_end,
+                    split="development",
+                    outcome="inconclusive",
+                    payload=payload,
+                )
+                if memory.connection.total_changes > changes_before:
+                    written += 1
+            except ValueError:
+                # identical feedback already recorded (idempotent re-run)
+                continue
     finally:
         memory.close()
     return written
