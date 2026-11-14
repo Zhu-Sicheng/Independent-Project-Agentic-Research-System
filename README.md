@@ -672,6 +672,24 @@ result layer under `experiments/.index/` is:
 | `results_index.json` | materialised latest state per run/expression |
 | `results.csv` | flat table of the same index |
 
+For a large quota, drive several pipeline runs in parallel and summarise them
+when the campaign stops:
+
+```powershell
+# one process per worker; stops at the shared target or the wall-clock budget
+python -m factorlab.campaign --worker 1 --target 500 --hours 7 --rounds 3 --max-evals 12
+
+# merge every run's evaluations.json into one summary + README
+python -m factorlab.campaign_report --out-root experiments/20261114-systemv1-500 --name systemv1-500
+```
+
+`campaign` writes run directories under `--out-root`, counts evaluated
+expressions from each `evaluations.json`, and resumes cleanly if it is restarted
+(the pipeline skips canonical expressions it already evaluated). `campaign_report`
+deduplicates by canonical form, joins the in-sample and display (OOS/holdout)
+metrics and writes `summary.csv` plus a README with the IS/OOS/holdout
+distribution; it never re-runs a backtest.
+
 Display figures are labelled `H<i>-F<j>` -- the i-th hypothesis from the
 ideation agent and the j-th factor derived from it -- instead of internal ids or
 long formulas (a hypothesis whose title is not ASCII falls back to the ordinal
@@ -1351,6 +1369,21 @@ LLM 模式下每个 agent 的 `--llm-max-turns` / `--llm-tool-calls` / `--llm-to
 | `results_events.jsonl` | append-only 事件日志（评估 / 更新） |
 | `results_index.json` | 以 run/表达式为键的物化最新状态 |
 | `results.csv` | 同一份索引的扁平表 |
+
+大规模额度可以并行驱动多个 pipeline run，结束后统一汇总：
+
+```powershell
+# 每个 worker 一个进程；达到共享目标或墙钟预算即停
+python -m factorlab.campaign --worker 1 --target 500 --hours 7 --rounds 3 --max-evals 12
+
+# 把所有 run 的 evaluations.json 合并成一份 summary + README
+python -m factorlab.campaign_report --out-root experiments/20261114-systemv1-500 --name systemv1-500
+```
+
+`campaign` 在 `--out-root` 下按 run 目录写入结果，从每个 `evaluations.json`
+统计已评估表达式数；重启后会按 canonical 表达式跳过已评估项继续。
+`campaign_report` 按 canonical 形式去重，合并样本内与 display 层（OOS/holdout）指标，
+输出 `summary.csv` 与含 IS/OOS/holdout 分布的 README，不重跑任何回测。
 
 展示图标题使用 `H<i>-F<j>`（第 i 个假设的第 j 个因子），不用内部 id 或长公式；
 非 ASCII 标题的假设只显示序号标签，避免中文字体缺字导致的乱码。PnL **默认采用加总口径**：
