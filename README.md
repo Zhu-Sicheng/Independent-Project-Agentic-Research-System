@@ -756,6 +756,15 @@ horizon, lookbacks, applicability, failure modes, evidence, novelty). The pack
 stops at the idea: implementation and any performance work remain in the
 existing pipeline, and the validator enforces that boundary.
 
+| skill | use it when | output |
+|---|---|---|
+| `factor-idea-scout` | you need fresh mechanism-first factor ideas from a data contract or EDA summary | 4-8 idea JSONs |
+| `anomaly-taxonomy` | you want documented market anomalies organised by mechanism and available fields | mechanism shortlist + idea JSONs |
+| `paper-to-hypothesis` | you have a paper/report finding and want a testable cross-sectional hypothesis | 1-3 idea JSONs + evidence notes |
+| `event-theme-radar` | a macro event, news theme or regime shift should become factor ideas | 3-6 idea JSONs mapped to fields |
+| `hypothesis-formalizer` | a rough thesis must become a contract-valid idea record | one validated idea JSON |
+| `idea-diversity-planner` | you are planning a batch and must avoid clustering / repetition | batch coverage plan + idea JSONs |
+
 ```powershell
 python skills/validate.py                      # contract + boundary checks (also in CI)
 python skills/install.py --dest <skills dir>   # e.g. %USERPROFILE%\.claude\skills
@@ -1427,6 +1436,15 @@ lookback（如 `ts_returns(x, 1)`），网格仍只替换我们配置的窗口�
 机制优先的创意生成、公开异象目录、论文/报告转假设、事件/主题雷达、假设规范化、批次多样化规划。
 它们输出与 Agent-2 接口一致的 15 字段 idea 记录（标题、家族、数据集、机制、信号概念、字段、
 方向、期限、回看、适用性、失效条件、证据、新颖性），不涉及实现与任何绩效工作。
+
+| 技能 | 适用场景 | 输出 |
+|---|---|---|
+| `factor-idea-scout` | 从数据契约/EDA 摘要产出机制优先的新因子想法 | 4-8 条 idea JSON |
+| `anomaly-taxonomy` | 按机制与可用字段整理有文献记载的市场异象 | 机制清单 + idea JSON |
+| `paper-to-hypothesis` | 把论文/报告的发现转成可检验的截面假设 | 1-3 条 idea JSON + 证据笔记 |
+| `event-theme-radar` | 把宏观事件、新闻主题或 regime 变化转成因子想法 | 3-6 条 idea JSON（映射到字段） |
+| `hypothesis-formalizer` | 把粗糙的想法/笔记规范化成契约合法的 idea 记录 | 一条通过校验的 idea JSON |
+| `idea-diversity-planner` | 规划一批想法并避免机制聚集/重复 | 批次覆盖计划 + idea JSON |
 
 ```powershell
 python skills/validate.py                      # 契约与创意层边界校验（CI 会跑）
