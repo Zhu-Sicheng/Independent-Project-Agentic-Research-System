@@ -658,6 +658,11 @@ In LLM mode the per-agent caps (`--llm-max-turns`, `--llm-tool-calls`,
 whole conversation each turn, so the token budget is the number that stops a run
 first (his Azure-era 60k default was raised).
 
+Each idea's optimisation is additionally capped: `--max-idea-rounds` (default 3)
+limits how many feedback rounds one idea may consume, counting Agent-3 rounds and
+reviewer revisions the same way. Candidates of an idea that already used its
+budget are dropped with a log line; `0` disables the cap.
+
 Backtest results are incremental. Re-running the same `--run-id` resumes the
 existing `evaluations.json`, skips known expressions, evaluates only the new
 ones and re-draws only missing figures (`--no-incremental` recomputes,
@@ -768,6 +773,26 @@ existing pipeline, and the validator enforces that boundary.
 ```powershell
 python skills/validate.py                      # contract + boundary checks (also in CI)
 python skills/install.py --dest <skills dir>   # e.g. %USERPROFILE%\.claude\skills
+```
+
+#### Field cards
+
+Every pipeline run refreshes `experiments/field_cards/`: one card per field (plus
+an `index.csv`) that keeps two kinds of evidence together --
+
+* **EDA evidence** -- the Agent-1 data-contract rows that map to the field
+  (`Adj_Close` -> `close`, ...), with semantic role, unit, missing fraction and
+  blocking reasons;
+* **backtest evidence** -- every evaluated expression that uses the field, with
+  its hypothesis, expression, reviewer decision and IS / OOS / holdout /
+  sub-universe metrics (sorted by IS Sharpe, full history in `<field>.json`).
+
+The cards are derived from `evaluations.json` and Agent-1 catalogs, so they are
+rebuilt from the newest evidence instead of hand-edited:
+
+```powershell
+python -m factorlab.field_cards --rebuild
+python -m factorlab.field_cards --field close
 ```
 
 ### 9. Known limitations / next steps
@@ -1368,6 +1393,9 @@ LLM 模式下每个 agent 的 `--llm-max-turns` / `--llm-tool-calls` / `--llm-to
 再叠一层 API 预算上限；chat completion 每轮都会重发上下文，token 预算通常最先触顶
 （他 Azure 时代的 60k 默认已上调）。
 
+每个 idea 的优化 additionally 受 `--max-idea-rounds`（默认 3）限制：一个 idea 最多消耗 3 个反馈轮
+（Agent-3 轮次与 reviewer 修订同等计数），超出预算的候选会被丢弃并打印日志；`0` 表示不限制。
+
 回测结果支持增量更新与增量修改：用同一个 `--run-id` 重跑会恢复已有 `evaluations.json`，
 跳过已知表达式、只评估新增的，并只补画缺失的展示图（`--no-incremental` 全部重算，
 `--force` 重新评估已知表达式）。记录以 canonical 表达式为主键做 upsert：重新评估同一因子
@@ -1449,6 +1477,23 @@ lookback（如 `ts_returns(x, 1)`），网格仍只替换我们配置的窗口�
 ```powershell
 python skills/validate.py                      # 契约与创意层边界校验（CI 会跑）
 python skills/install.py --dest <skills 目录>  # 例如 %USERPROFILE%\.claude\skills
+```
+
+#### 字段卡片
+
+每次 pipeline run 结束都会刷新 `experiments/field_cards/`：每个字段一张卡片（另加 `index.csv`），
+同时维护两类证据——
+
+* **EDA 证据**：Agent 1 数据契约里映射到该字段的原始列（`Adj_Close` → `close` 等），
+  含语义角色、单位、缺失率与阻塞原因；
+* **回测证据**：所有用到该字段的已评估表达式，记录假设、表达式、reviewer 决策以及
+  IS / OOS / holdout / 子全集指标（按 IS Sharpe 排序，完整历史在 `<field>.json`）。
+
+卡片由 `evaluations.json` 与 Agent-1 catalog 派生，随实验不断迭代维护，无需手工编辑：
+
+```powershell
+python -m factorlab.field_cards --rebuild
+python -m factorlab.field_cards --field close
 ```
 
 ### 9. 已知限制 / 下一步

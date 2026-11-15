@@ -289,6 +289,29 @@ def merge_records(previous: list[dict], new: list[dict]) -> list[dict]:
 # --------------------------------------------------------------------------- #
 # orchestration
 # --------------------------------------------------------------------------- #
+def filter_capped_ideas(
+    candidates: list[dict], idea_rounds: dict[str, int], max_idea_rounds: int
+) -> tuple[list[dict], int]:
+    """Drop candidates whose idea already used its per-idea optimisation budget.
+
+    An "optimisation round" is one round in which at least one expression of the
+    idea is evaluated; ``max_idea_rounds`` caps how many such rounds an idea may
+    consume across the whole pipeline run (agent-3 rounds and reviewer revisions
+    count the same way). ``max_idea_rounds <= 0`` disables the cap.
+    """
+    if max_idea_rounds is None or int(max_idea_rounds) <= 0:
+        return list(candidates), 0
+    kept: list[dict] = []
+    dropped = 0
+    for candidate in candidates:
+        idea_id = candidate.get("idea_id")
+        if idea_id and idea_rounds.get(idea_id, 0) >= int(max_idea_rounds):
+            dropped += 1
+            continue
+        kept.append(candidate)
+    return kept, dropped
+
+
 def run_pipeline(
     mode: str = "offline",
     experiment_name: Optional[str] = None,
@@ -299,6 +322,7 @@ def run_pipeline(
     max_evals: int = 16,
     max_expressions_per_idea: int = 1,
     rounds: int = 3,
+    max_idea_rounds: int = 3,
     pnl_mode: str = "additive",
     agent_modes: Optional[dict] = None,
     min_ideas: int = 2,
@@ -434,6 +458,8 @@ def run_pipeline(
     max_rounds = max(1, rounds)
     feedback_mode = modes["agent3"] == "llm"
     pending_revisions: list[dict] = []
+    # per-idea optimisation rounds consumed so far (capped by max_idea_rounds)
+    idea_rounds: dict[str, int] = {}
 
     while round_index < max_rounds:
         if pending_revisions:
@@ -455,6 +481,16 @@ def run_pipeline(
                 f"round {round_index}: agent3 {agent3_dir.name} status={agent3_result.get('status')} "
                 f"expressions={len(candidates)}"
             )
+        candidates, capped = filter_capped_ideas(candidates, idea_rounds, max_idea_rounds)
+        if capped:
+            say(
+                f"round {round_index}: dropped {capped} candidates from ideas that "
+                f"already used {max_idea_rounds} optimisation rounds"
+            )
+        for candidate in candidates:
+            idea_id = candidate.get("idea_id")
+            if idea_id:
+                idea_rounds[idea_id] = idea_rounds.get(idea_id, 0) + 1
         for candidate in candidates:
             idea = ideas.get(candidate.get("idea_id", ""), {})
             candidate.setdefault("_dataset_id", idea.get("dataset_id"))
@@ -492,8 +528,8 @@ def run_pipeline(
         )
 
         if not candidates:
-            stop_reason = "no_candidates"
-            say(f"round {round_index}: no candidates; stopping")
+            stop_reason = "idea_round_cap" if capped else "no_candidates"
+            say(f"round {round_index}: no candidates ({stop_reason}); stopping")
             break
         if round_index + 1 >= max_rounds:
             stop_reason = "max_rounds_reached"
@@ -506,6 +542,14 @@ def run_pipeline(
             continue
         # offline: chain the reviewer's own revisions, one per round
         pending_revisions = candidates_from_revisions(new_records)
+        pending_revisions, capped_revisions = filter_capped_ideas(
+            pending_revisions, idea_rounds, max_idea_rounds
+        )
+        if capped_revisions:
+            say(
+                f"round {round_index}: dropped {capped_revisions} reviewer revisions "
+                f"(idea round cap {max_idea_rounds})"
+            )
         if not pending_revisions:
             stop_reason = "no_offline_revisions"
             say(f"round {round_index}: no offline revisions; stopping the loop")
@@ -532,6 +576,14 @@ def run_pipeline(
         f"unchanged {store_stats['unchanged']}; {events_written} events; "
         f"index {index_stats['n_records']} records"
     )
+    # ---- field cards: EDA evidence + every backtest that touches the field ----
+    try:
+        from .field_cards import update_field_cards
+
+        n_cards = update_field_cards(PROJECT_ROOT / "experiments")
+        say(f"field cards: refreshed {n_cards} cards under experiments/field_cards/")
+    except Exception as exc:  # cards are derived; never fail the run for them
+        say(f"field cards: skipped ({type(exc).__name__}: {exc})")
 
     # ---- factor pool for accepted candidates (IS-selected configuration) ----
     pool = FactorPool(output_root / "pool")
@@ -642,6 +694,7 @@ def run_pipeline(
         f"# Merged pipeline run `{run_id}`",
         "",
         f"- agent modes: {modes}; max feedback rounds: {max_rounds}; "
+        f"max idea rounds: {max_idea_rounds}; "
         f"stopped: `{stop_reason}`; elapsed {summary['elapsed_s']}s",
         f"- incremental: {summary['incremental']['enabled']} "
         f"(resumed {summary['incremental']['previous_evaluations']} evaluations, "
@@ -695,6 +748,12 @@ def main(argv: Optional[list[str]] = None) -> None:
         help="in-sample end; the optimisation loop never sees dates after it",
     )
     parser.add_argument("--rounds", type=int, default=3, help="feedback rounds to run")
+    parser.add_argument(
+        "--max-idea-rounds",
+        type=int,
+        default=3,
+        help="max optimisation rounds an idea may consume (0 disables the cap)",
+    )
     parser.add_argument("--pnl-mode", choices=("additive", "compound"), default="additive",
                         help="cumulative pnl convention (default: additive cumsum)")
     parser.add_argument("--incremental", dest="incremental", action="store_true", default=True,
@@ -737,6 +796,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         max_evals=args.max_evals,
         max_expressions_per_idea=args.max_expressions_per_idea,
         rounds=args.rounds,
+        max_idea_rounds=args.max_idea_rounds,
         pnl_mode=args.pnl_mode,
         incremental=args.incremental,
         force=args.force,

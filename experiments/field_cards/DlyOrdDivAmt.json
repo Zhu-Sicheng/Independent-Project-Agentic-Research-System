@@ -1,0 +1,21 @@
+{
+  "field": "DlyOrdDivAmt",
+  "eda": [],
+  "backtests": [
+    {
+      "field": "DlyOrdDivAmt",
+      "run_id": "s500-c4-r004",
+      "round": 2,
+      "hypothesis": "Abnormally high trailing dividend yield relative to its own history precedes weaker index returns",
+      "expression": "-1 * ts_zscore(safe_div(ts_sum(DlyOrdDivAmt, 252), close), 252) * ts_zscore(ts_mean(returns, 252), 252)",
+      "decision": null,
+      "is_sharpe": null,
+      "is_turnover": null,
+      "is_rank_ic": null,
+      "oos_sharpe": null,
+      "holdout_sharpe": null,
+      "subuniverse_sharpe": null,
+      "updated_at": "2026-11-14T17:00:55.010862+00:00"
+    }
+  ]
+}
